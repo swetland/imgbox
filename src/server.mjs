@@ -21,7 +21,7 @@ export function createServer(_db, _options) {
 
 	function mediaUrl(sha1) {
 		// /media/##/...
-		return `/media/${sha1.substring(0, 2)}/`
+		return `media/${sha1.substring(0, 2)}/`
 	}
 
 	// post_id: tag_name:

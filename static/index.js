@@ -409,7 +409,7 @@ async function getPosts() {
 	try {
 	let after = null;
 	while (true) {
-		const rsp = await fetch("/api/getRecentPosts", {
+		const rsp = await fetch("api/getRecentPosts", {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
   			body: JSON.stringify({ after: after }),
@@ -427,7 +427,7 @@ async function getPosts() {
 async function findPosts(query) {
 	grid.clear();
 	try {
-		const rsp = await fetch("/api/findPosts", {
+		const rsp = await fetch("api/findPosts", {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
   			body: JSON.stringify({ query: query.trim() }),
@@ -443,7 +443,7 @@ async function findPosts(query) {
 
 async function getTags() {
 	try {
-		const rsp = await fetch("/api/getTags", {
+		const rsp = await fetch("api/getTags", {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
   			body: "{}",
@@ -478,7 +478,7 @@ ui.text_filter.addEventListener("keydown", (e) => {
 async function doAddTagToPost(id, name) {
 	name = name.trim();
 	try {
-		const rsp = await fetch("/api/addTagToPost", {
+		const rsp = await fetch("api/addTagToPost", {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
   			body: JSON.stringify({ post_id: id, tag_name: name }),

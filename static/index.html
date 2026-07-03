@@ -13,6 +13,7 @@ html,body,page-top {
 	height: 100%;
 	width: 100%;
 	overflow: clip;
+	font-family: sans;
 }
 page-main {
 	margin: 0;
@@ -39,16 +40,25 @@ sidebar-info {
 sidebar-tags {
 }
 sidebar-more {
+	margin-top: auto;
+}
+page-sidebar ul {
+	list-style: none;
+	padding: 0px;
+	margin: 5px;
+}
+page-sidebar li {
+	background-color: #eee;
+	margin-top: 5px;
+	padding: 5px;
+}
+sidebar-more li:hover {
+	background-color: #0f0;
+}
+sidebar-tags li span:last-child {
+	float: right;
 }
 
-header {
-	height: 2em;
-	background-color: #c00;
-}
-footer {
-	height: 2em;
-	background-color: #0c0;
-}
 tile-grid {
 	display: grid;
 	grid-template-rows: var(--tile-grid);
@@ -86,7 +96,7 @@ img-wrap {
 	border: 3px solid #0f0;
 	background-color: #0f0;
 }
-.focused > img-clip > img-wrap > img {
+.focused img {
 	border-radius: 7px;
 }
 img-wrap img {
@@ -100,7 +110,6 @@ view-pane {
 	height: 100%;
 	overflow: auto;
 	background-color: black;
-
 	justify-content: center;
 	align-items: center;
 }
@@ -131,7 +140,7 @@ dd {
 	text-align: left;
 }
 
-.selected > img-clip > img-wrap > tile-icon {
+.selected tile-icon {
 	display: block;
 	width: 30px;
 	height: 30px;
@@ -170,13 +179,12 @@ comp-list {
 	border: 2px solid black;
 	display: none;
 }
-comp-list > ul {
+comp-list ul {
 	list-style: none;
 	padding: 0px;
 	margin: 5px;
 }
-comp-list > ul > li {
-	/* list-style: none; */
+comp-list li {
 	margin-top: 5px;
 }
 
@@ -189,7 +197,7 @@ li.selected {
 
 sidebar-label {
 	margin-top: 10px;
-	margin-bottom: 10px;
+	margin-bottom: 5px;
 	font-weight: bold;
 }
 </style>

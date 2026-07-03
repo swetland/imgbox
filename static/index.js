@@ -1,6 +1,8 @@
 // Copyright 2026, Brian Swetland <swetland@frotz.net>
 // Licensed under the Apache License, Version 2.0.
 
+"use strict";
+
 const flags = {
 	IMAGE: 1,
 	VIDEO: 2,
@@ -31,6 +33,44 @@ let viewer_is_open = false;
 let viewer_is_video = false;
 let viewer_post = null;
 let sidebar_post = null;
+
+let tags_map = new Map();
+let tags_list = [];
+let tags_quick = [];
+
+function importTags(tags) {
+	for (let tag of tags) {
+		if (!tags_map.get(tag.tag)) {
+			tags_map.set(tag.tag, tag);
+			tags_list.push(tag);
+		}
+	}
+}
+function addTag(name) {
+	if (!tags_map.get(name)) {
+		const tag = { tag: name, kind: 0, count: 1 };
+		tags_map.set(name, tag);
+		tags_list.push(tag);
+	} else {
+		tags_map.get(name).count++;
+	}
+}
+
+function addQuickTag(name) {
+	const tag = tags_map.get(name);
+	if (tag && (tags_quick.indexOf(tag) < 0)) {
+		tags_quick.push(tag);
+		tags_quick.sort((a, b) => { return a.tag.localeCompare(b.tag); });
+	}
+}
+function removeQuickTag(name) {
+	const tag = tags_map.get(name);
+	if (!tag) return;
+	const n = tags_quick.indexOf(tag);
+	if (n >= 0) {
+		tags_quick.splice(n, 1)
+	}
+}
 
 function newTileGrid(_elem) {
 	const grid = _elem;
@@ -171,7 +211,6 @@ function newTileGrid(_elem) {
 	};
 }
 
-
 const grid = newTileGrid(ui.tilegrid);
 
 grid.onSelection((n) => {
@@ -198,6 +237,11 @@ grid.onDblClick((e, tile) => {
 	openViewer(tile);
 });
 grid.onActivation(sidebarShowPostInfo);
+
+function activePost() {
+	if (viewer_is_open) return viewer_post;
+	return grid.getActive();
+}
 
 // Sidebar Display
 function formatBytes(n) {
@@ -228,15 +272,17 @@ function addListItem(list, label, text) {
 	dt.innerText = label;
 	const dd = document.createElement('dd');
 	dd.innerText = text;
-	list.appendChild(dt);
-	list.appendChild(dd);
+	list.append(dt, dd);
 }
 
 function sidebarShowTags(post) {
-	list = document.createElement("ul");
+	const list = document.createElement("ul");
 	for (let tag of post.tags) {
 		let li = document.createElement("li");
 		li.innerText = tag.replaceAll("_"," ");
+		let count = document.createElement("span");
+		count.innerText = tags_map.get(tag).count;
+		li.appendChild(count);
 		list.appendChild(li);
 	}
 	ui.tagsbox.replaceChildren(list);
@@ -256,6 +302,21 @@ function sidebarShowPostInfo(post) {
 		sidebarShowTags(post);
 	}
 	ui.infobox.replaceChildren(list);
+}
+
+function sidebarUpdateQuickTags() {
+	const list = document.createElement("ul");
+	for (let tag of tags_quick) {
+		let li = document.createElement("li");
+		let x = document.createElement("strong");
+		let y = document.createElement("span");
+		x.innerText = " + ";
+		y.innerText = tag.tag.replaceAll("_", " ");
+		li.replaceChildren(x, y);
+		li.addEventListener("click", (e) => { applyTag(tag.tag); });
+		list.appendChild(li);
+	}
+	ui.morebox.replaceChildren(list);
 }
 
 // Image Viewer
@@ -325,8 +386,7 @@ function addTilesFromPosts(posts) {
 		img.src = post.media_base + post.media_m[0];
 		tile.appendChild(clip);
 		clip.appendChild(wrap);
-		wrap.appendChild(img);
-		wrap.appendChild(icon);
+		wrap.append(img, icon);
 		if (post.flags & flags.VIDEO) {
 			let tag = document.createElement('info-tag');
 			tag.innerText = formatDurationTag(post.duration);
@@ -390,7 +450,7 @@ async function getTags() {
 		});
 		const res = await rsp.json();
 		if (res.tags.length != 0) {
-			all_tags = res.tags;
+			importTags(res.tags);
 		}
 	} catch (err) {
     		console.error(err.message);
@@ -433,18 +493,17 @@ async function doAddTagToPost(id, name) {
 }
 
 function tagPosts(name, posts) {
-	console.log(posts);
 	name = name.trim();
 	if (!posts) return;
 	(async() => {
-		for (post of posts) {
+		for (let post of posts) {
 			if (await doAddTagToPost(post.post_id, name)) {
 				post.tags.push(name);
 				post.tags = post.tags.sort();
+				addTag(name);
 				if (post == sidebar_post) {
 					sidebarShowPostInfo(post);
 				}
-				//TODO: update tag cache if new
 			}
 		}
 	})();
@@ -469,7 +528,7 @@ function updateCompList(e) {
 	complist.style.width = window.getComputedStyle(textbox).width;
 	let n = 0;
 	let ul = document.createElement("ul");
-	for (let tag of all_tags) {
+	for (let tag of tags_list) {
 		let idx = tag.tag.indexOf(v);
 		if (idx < 0) continue;
 		if ((idx > 0) && (tag.tag[idx - 1] != "_")) continue;
@@ -532,6 +591,24 @@ textbox.addEventListener("keydown", (e) => {
 		}
 		e.currentTarget.value = v + " ";
 		break;
+	case "c":
+		if (e.ctrlKey) {
+			if ((sel = complist.getElementsByClassName("selected").item(0))) {
+				addQuickTag(sel.dataset.tag);
+				sidebarUpdateQuickTags();
+				break;
+			}
+		}
+		return;
+	case "x":
+		if (e.ctrlKey) {
+			if ((sel = complist.getElementsByClassName("selected").item(0))) {
+				removeQuickTag(sel.dataset.tag);
+				sidebarUpdateQuickTags();
+				break;
+			}
+		}
+		return;
 	default:
 		return;
 	}
@@ -549,23 +626,26 @@ textbox.addEventListener("blur", (e) => {
 setupTagCompletion(ui.text_add_tag, ui.suggest_add_tag);
 setupTagCompletion(ui.text_filter, ui.suggest_filter);
 
+function applyTag(name) {
+	let t;
+	if (t = grid.getSelected()) {
+		tagPosts(name, t);
+	} else {
+		tagPosts(name, [ activePost() ]);
+	}
+}
+
 ui.text_add_tag.addEventListener("keydown", (e) => {
 	let x = e.currentTarget;
 	switch (e.key) {
 	case "Enter":
-		let t;
-		if (t = grid.getSelected()) {
-			tagPosts(x.value, t);
-		} else if (t = grid.getActive()) {
-			tagPosts(x.value, [t]);
-		} else {
-			break;
-		}
+		applyTag(x.value);
 		x.value = "";
 		x.blur();
 		break;
 	case "Escape":
 		x.blur();
+		break;
 	default:
 		return;
 	}

@@ -511,25 +511,17 @@ function removeTag(name, post) {
 	})();
 }
 
-// keyboard navigation
-ui.text_filter.addEventListener("keydown", (e) => {
-	let x = e.currentTarget;
-	switch (e.key) {
-	case "Enter":
-		const v = x.value;
-		x.blur();
-		(async() => { findPosts(v); })();
-		break;
-	case "Escape":
-		x.blur();
-		break;
-	default:
-		return;
+function applyTag(name) {
+	let t;
+	if (t = grid.getSelected()) {
+		tagPosts(name, t);
+	} else {
+		tagPosts(name, [ activePost() ]);
 	}
-	e.preventDefault();
-});
+}
 
 function setupTagCompletion(textbox, complist) {
+let cache = null;
 function updateCompList(e) {
 	let v = e.currentTarget.value;
 	let x = v.lastIndexOf(" ");
@@ -540,11 +532,11 @@ function updateCompList(e) {
 		complist.style.display = "none";
 		return;
 	}
-	if (v == complist.userdata) {
+	if (v == cache) {
 		complist.style.display = "block";
 		return;
 	}
-	complist.userdata = v;
+	cache = v;
 	complist.style.width = window.getComputedStyle(textbox).width;
 	let n = 0;
 	let ul = document.createElement("ul");
@@ -598,6 +590,7 @@ textbox.addEventListener("keydown", (e) => {
 			next = sel.previousElementSibling;
 		}
 		break;
+	case "Enter":
 	case "Tab":
 		if (!(sel = complist.getElementsByClassName("selected").item(0))) {
 			return;
@@ -610,20 +603,13 @@ textbox.addEventListener("keydown", (e) => {
 			v = sel.dataset.tag;
 		}
 		e.currentTarget.value = v + " ";
+		complist.replaceChildren();
+		cache = null;
 		break;
 	case "c":
 		if (e.ctrlKey) {
 			if ((sel = complist.getElementsByClassName("selected").item(0))) {
 				addQuickTag(sel.dataset.tag);
-				sidebarUpdateQuickTags();
-				break;
-			}
-		}
-		return;
-	case "x":
-		if (e.ctrlKey) {
-			if ((sel = complist.getElementsByClassName("selected").item(0))) {
-				removeQuickTag(sel.dataset.tag);
 				sidebarUpdateQuickTags();
 				break;
 			}
@@ -646,24 +632,31 @@ textbox.addEventListener("blur", (e) => {
 setupTagCompletion(ui.text_add_tag, ui.suggest_add_tag);
 setupTagCompletion(ui.text_filter, ui.suggest_filter);
 
-function applyTag(name) {
-	let t;
-	if (t = grid.getSelected()) {
-		tagPosts(name, t);
-	} else {
-		tagPosts(name, [ activePost() ]);
+// do this after setupTagCompletion so the completer
+// handles Enter events first
+ui.text_filter.addEventListener("keydown", (e) => {
+	let x = e.currentTarget;
+	switch (e.key) {
+	case "Enter":
+		const v = x.value;
+		(async() => { findPosts(v); })();
+	case "Escape":
+		x.value = "";
+		x.blur();
+		break;
+	default:
+		return;
 	}
-}
+	e.preventDefault();
+});
 
 ui.text_add_tag.addEventListener("keydown", (e) => {
 	let x = e.currentTarget;
 	switch (e.key) {
 	case "Enter":
 		applyTag(x.value);
-		x.value = "";
-		x.blur();
-		break;
 	case "Escape":
+		x.value = "";
 		x.blur();
 		break;
 	default:

@@ -722,13 +722,13 @@ document.addEventListener("keydown", (e) => {
 			grid.deselectAll();
 			break;
 		case "1":
-			setTileSize("128px");
+			grid.setSize("128px");
 			break;
 		case "2":
-			setTileSize("256px");
+			grid.setSize("256px");
 			break;
 		case "3":
-			setTileSize("384px");
+			grid.setSize("384px");
 			break;
 		default:
 			return;

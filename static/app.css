@@ -1,0 +1,252 @@
+:root {
+	--tile-size: 256px;
+	--tile-grid: calc(var(--tile-size) + 20px);
+}
+html,body,page-top {
+	margin: 0;
+	display: flex;
+	flex-direction: row;
+	height: 100%;
+	width: 100%;
+	overflow: clip;
+	font-family: sans;
+}
+page-main {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 80%;
+	height: 100%;
+	width: 80%;
+	overflow: auto;
+}
+page-sidebar {
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 20%;
+	width: 20%;
+	height: 100%;
+	background-color: #aaa;
+	border-right: 2px solid black;
+	box-sizing: border-box;
+	padding: 0px 10px 0px 10px;
+}
+page-sidebar ul {
+	list-style: none;
+	padding: 0px;
+	margin: 5px;
+}
+page-sidebar li {
+	background-color: #eee;
+	margin-top: 5px;
+	padding: 5px;
+	border-radius: 5px;
+}
+sidebar-label {
+	margin-top: 10px;
+	margin-bottom: 5px;
+	font-weight: bold;
+}
+sidebar-pane {
+}
+#quicktags li:hover {
+	background-color: #0f0;
+}
+#infotags li span:last-child {
+	float: right;
+}
+page-sidebar input {
+	padding: 5px;
+	border-radius: 5px;
+	background-color: #eee;
+}
+
+tile-grid {
+	display: grid;
+	grid-template-rows: var(--tile-grid);
+	grid-auto-rows: var(--tile-grid);
+	grid-template-columns: repeat(auto-fit, minmax(var(--tile-grid), 1fr));
+	gap: 3px;
+	background-color: #eee;
+	height: 100%;
+	overflow: auto;
+}
+img-tile {
+        display: flex;
+	flex-direction: column;
+	margin: auto;
+	background-color: #eee;
+	border: 3px solid #eee;
+	border-radius: 7px;
+	position: relative;
+}
+img-clip {
+	display: flex;
+        width: var(--tile-size);
+        height: var(--tile-size);
+	overflow: clip;
+        justify-content: center; /* or: end */
+	align-items: center;
+}
+img-wrap {
+	display: flex;
+	max-width: 100%;
+	max-height: 100%;
+	position: relative;
+}
+.focused {
+	border: 3px solid #0f0;
+	background-color: #0f0;
+}
+.focused img {
+	border-radius: 7px;
+}
+img-wrap img {
+        max-width: 100%;
+        max-height: 100%;
+	object-fit: contain;
+}
+view-pane {
+	display: none;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background-color: black;
+	justify-content: center;
+	align-items: center;
+}
+view-pane-div {
+	height: 100%;
+	align-content: center;
+}
+view-pane-div video {
+	display: none;
+	max-width: 100%;
+	max-height: 100%;
+}
+.img-no-zoom {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+dl {
+	display: grid;
+	grid-template-columns: min-content max-content;
+	width: 100%;
+}
+dt {
+	text-align: right;
+	font-weight: bold;
+}
+dd {
+	text-align: left;
+}
+
+.selected tile-icon {
+	display: block;
+	width: 30px;
+	height: 30px;
+	background-color: #00f;
+	border-radius: 50px;
+	z-index: 1;
+	position: absolute;
+	top: 5px;
+	right: 5px;
+	border: 2px solid #fff;
+}
+info-tag {
+	display: block;
+	z-index: 1;
+	background-color: #000b;
+	color: #fff;
+	border-radius: 3px;
+	position: absolute;
+	left: 5px;
+	bottom: 5px;
+	padding: 0px 3px 0px 3px;
+	font-family: sans-serif;
+	font-weight: bold;
+	font-size: 10pt;
+}
+
+comp-anchor {
+	position: relative;
+	width: 100%;
+}
+comp-list {
+	z-index: 2;
+	position: absolute;
+	left: 0px;
+	right: 0px;
+	top: 3px;
+	background-color: #fff;
+	border: 2px solid black;
+	border-radius: 5px;
+	display: none;
+}
+comp-list ul {
+	list-style: none;
+	padding: 0px;
+	margin: 5px;
+}
+comp-list li {
+	margin-top: 5px;
+}
+
+input.selected {
+	background-color: #99f;
+}
+li.selected {
+	background-color: #ff9;
+}
+
+.hotkey-0::before {
+	content: url("icon/0-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-1::before {
+	content: url("icon/1-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-2::before {
+	content: url("icon/2-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-3::before {
+	content: url("icon/3-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-4::before {
+	content: url("icon/4-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-5::before {
+	content: url("icon/5-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-6::before {
+	content: url("icon/6-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-7::before {
+	content: url("icon/7-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-8::before {
+	content: url("icon/8-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-9::before {
+	content: url("icon/9-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}

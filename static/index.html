@@ -35,13 +35,6 @@ page-sidebar {
 	box-sizing: border-box;
 	padding: 10px;
 }
-sidebar-info {
-}
-sidebar-tags {
-}
-sidebar-more {
-	margin-top: auto;
-}
 page-sidebar ul {
 	list-style: none;
 	padding: 0px;
@@ -51,12 +44,70 @@ page-sidebar li {
 	background-color: #eee;
 	margin-top: 5px;
 	padding: 5px;
+	border-radius: 5px;
 }
-sidebar-more li:hover {
+sidebar-pane {
+}
+#quicktags li:hover {
 	background-color: #0f0;
 }
-sidebar-tags li span:last-child {
+#infotags li span:last-child {
 	float: right;
+}
+page-sidebar input {
+	padding: 5px;
+	border-radius: 5px;
+	background-color: #eee;
+}
+.hotkey-0::before {
+	content: url("icon/0-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-1::before {
+	content: url("icon/1-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-2::before {
+	content: url("icon/2-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-3::before {
+	content: url("icon/3-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-4::before {
+	content: url("icon/4-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-5::before {
+	content: url("icon/5-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-6::before {
+	content: url("icon/6-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-7::before {
+	content: url("icon/7-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-8::before {
+	content: url("icon/8-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
+}
+.hotkey-9::before {
+	content: url("icon/9-circle-fill.svg");
+	margin-right: 5px;
+	vertical-align: middle;
 }
 
 tile-grid {
@@ -177,6 +228,7 @@ comp-list {
 	top: 3px;
 	background-color: #fff;
 	border: 2px solid black;
+	border-radius: 5px;
 	display: none;
 }
 comp-list ul {
@@ -207,14 +259,15 @@ sidebar-label {
 <page-top>
  <page-sidebar id="sidebar">
   <sidebar-label>Search:</sidebar-label>
-  <input type="text" id="filter-text">
-  <comp-anchor><comp-list id="filter-suggest" /></comp-anchor>
-  <sidebar-label id="add-tag-label">Add Tag:</sidebar-label>
-  <input type="text" id="add-tag-text">
-  <comp-anchor><comp-list id="add-tag-suggest" /></comp-anchor>
-  <sidebar-info id="infobox"></sidebar-info>
-  <sidebar-tags id="infotags"></sidebar-tags>
-  <sidebar-more id="moretags"></sidebar-more>
+  <input type="text" id="search-text">
+  <comp-anchor><comp-list id="search-comp" /></comp-anchor>
+  <sidebar-label id="addtag-label">Add Tag:</sidebar-label>
+  <input type="text" id="addtag-text">
+  <comp-anchor><comp-list id="addtag-comp" /></comp-anchor>
+  <sidebar-pane id="infobox"></sidebar-pane>
+  <sidebar-pane id="infotags"></sidebar-pane>
+  <sidebar-label id="quicktags-label" style="margin-top: auto"></sidebar-label>
+  <sidebar-pane id="quicktags"></sidebar-pane>
  </page-sidebar>
  <page-main>
   <view-pane id="viewer">

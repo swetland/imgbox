@@ -17,13 +17,14 @@ const ui = {
 	tilegrid: ID("tilegrid"),
 	viewer: ID("viewer"),
 	infobox: ID("infobox"),
-	tagsbox: ID("infotags"),
-	morebox: ID("moretags"),
-	text_filter: ID("filter-text"),
-	suggest_filter: ID("filter-suggest"),
-	text_add_tag: ID("add-tag-text"),
-	label_add_tag: ID("add-tag-label"),
-	suggest_add_tag: ID("add-tag-suggest"),
+	infotags: ID("infotags"),
+	quicktags: ID("quicktags"),
+	quicktags_label: ID("quicktags-label"),
+	search_text: ID("search-text"),
+	search_comp: ID("search-comp"),
+	addtag_text: ID("addtag-text"),
+	addtag_label: ID("addtag-label"),
+	addtag_comp: ID("addtag-comp"),
 	viewer_vid: ID("viewer-vid"),
 	viewer_img: ID("viewer-img"),
 };
@@ -56,20 +57,23 @@ function importTag(name) {
 	}
 }
 
+function saveQuickTags() {
+	window.localStorage.setItem(
+		"net.frotz.imgbox.quicklist",
+		JSON.stringify(tags_quick));
+}
 function addQuickTag(name) {
-	const tag = tags_map.get(name);
-	if (tag && (tags_quick.indexOf(tag) < 0)) {
-		tags_quick.push(tag);
-		tags_quick.sort((a, b) => { return a.tag.localeCompare(b.tag); });
-		window.localStorage.setItem(
-			"net.frotz.imgbox.quicklist",
-			JSON.stringify(tags_quick));
+	name = name.trim();
+	if (tags_quick.indexOf(name) < 0) {
+		tags_quick.push(name);
+		tags_quick = tags_quick.sort();
+		saveQuickTags();
 	}
 }
 function removeQuickTag(name) {
-	const tag = tags_map.get(name);
-	if (!tag) return;
-	tags_quick = tags_quick.filter(t => t.tag != name);
+	name = name.trim();
+	tags_quick = tags_quick.filter(t => t != name);
+	saveQuickTags();
 }
 
 function newTileGrid(_elem) {
@@ -135,11 +139,19 @@ function newTileGrid(_elem) {
 		return active;
 	}
 	function goEast(scroll) {
-		activate(active ? all[active._idx + 1] : all[0], scroll);
+		if (!active) {
+			activate(all[0], scroll);
+		} else if ((active._idx + 1) % cols) {
+			activate(all[active._idx + 1], scroll);
+		}
 		return active;
 	}
 	function goWest(scroll) {
-		activate(active ? all[active._idx - 1] : all[0], scroll);
+		if (!active) {
+			activate(all[0], scroll);
+		} else if (active._idx % cols) {
+			activate(all[active._idx - 1]);
+		}
 		return active;
 	}
 
@@ -216,14 +228,14 @@ const grid = newTileGrid(ui.tilegrid);
 grid.onSelection((n) => {
 	if (n > 0) {
 		if (n == 1) {
-			ui.label_add_tag.innerText = "Add Tag (to 1 selected post):";
+			ui.addtag_label.innerText = "Add Tag (to 1 selected post):";
 		} else {
-			ui.label_add_tag.innerText = `Add Tag (to ${n} selected posts):`;
+			ui.addtag_label.innerText = `Add Tag (to ${n} selected posts):`;
 		}
-		ui.text_add_tag.classList.add("selected");
+		ui.addtag_text.classList.add("selected");
 	} else {
-		ui.text_add_tag.classList.remove("selected");
-		ui.label_add_tag.innerText = "Add Tag:";
+		ui.addtag_label.innerText = "Add Tag:";
+		ui.addtag_text.classList.remove("selected");
 	}
 });
 grid.onClick((e, tile) => {
@@ -292,10 +304,11 @@ function sidebarShowTags(post) {
 			} else {
 				// search?
 			}
+			e.preventDefault();
 		});
 		list.appendChild(li);
 	}
-	ui.tagsbox.replaceChildren(list);
+	ui.infotags.replaceChildren(list);
 }
 
 function sidebarShowPostInfo(post) {
@@ -316,24 +329,35 @@ function sidebarShowPostInfo(post) {
 
 function sidebarUpdateQuickTags() {
 	const list = document.createElement("ul");
+	let n = 1;
 	for (let tag of tags_quick) {
 		let li = document.createElement("li");
 		let x = document.createElement("strong");
 		let y = document.createElement("span");
-		x.innerText = " + ";
-		y.innerText = tag.tag.replaceAll("_", " ");
+		//x.innerText = " + ";
+		y.innerText = tag.replaceAll("_", " ");
 		li.replaceChildren(x, y);
 		li.addEventListener("click", (e) => {
 			if (e.ctrlKey) {
-				removeQuickTag(tag.tag);
+				removeQuickTag(tag);
 				sidebarUpdateQuickTags();
 			} else {
-				applyTag(tag.tag);
+				applyTag(tag);
 			}
+			e.preventDefault();
 		});
+		if (n < 10) {
+			li.classList.add("hotkey-" + n);
+		}
+		n++;
 		list.appendChild(li);
 	}
-	ui.morebox.replaceChildren(list);
+	if (n > 1) {
+		ui.quicktags_label.innerText = "Quick Tags:";
+	} else {
+		ui.quicktags_label.innerText = "";
+	}
+	ui.quicktags.replaceChildren(list);
 }
 
 // Image Viewer
@@ -449,6 +473,7 @@ async function getPosts() {
 		if (r.posts.length == 0) break;
 		addTilesFromPosts(r.posts);
 		after = r.posts.at(-1).post_id;
+break;
 	}
 }
 
@@ -629,12 +654,12 @@ textbox.addEventListener("blur", (e) => {
 });
 }
 
-setupTagCompletion(ui.text_add_tag, ui.suggest_add_tag);
-setupTagCompletion(ui.text_filter, ui.suggest_filter);
+setupTagCompletion(ui.addtag_text, ui.addtag_comp);
+setupTagCompletion(ui.search_text, ui.search_comp);
 
 // do this after setupTagCompletion so the completer
 // handles Enter events first
-ui.text_filter.addEventListener("keydown", (e) => {
+ui.search_text.addEventListener("keydown", (e) => {
 	let x = e.currentTarget;
 	switch (e.key) {
 	case "Enter":
@@ -650,7 +675,7 @@ ui.text_filter.addEventListener("keydown", (e) => {
 	e.preventDefault();
 });
 
-ui.text_add_tag.addEventListener("keydown", (e) => {
+ui.addtag_text.addEventListener("keydown", (e) => {
 	let x = e.currentTarget;
 	switch (e.key) {
 	case "Enter":
@@ -748,13 +773,13 @@ document.addEventListener("keydown", (e) => {
 		return;
 	case "f":
 	case "/":
-		ui.text_filter.focus();
-		ui.text_filter.select();
+		ui.search_text.focus();
+		ui.search_text.select();
 		e.preventDefault();
 		return;
 	case "t":
-		ui.text_add_tag.focus();
-		ui.text_add_tag.select();
+		ui.addtag_text.focus();
+		ui.addtag_text.select();
 		e.preventDefault();
 		return;
 	}
@@ -767,18 +792,6 @@ document.addEventListener("keydown", (e) => {
 			break;
 		case ";":
 			grid.toggle(grid.getActive());
-			break;
-		case "x":
-			grid.deselectAll();
-			break;
-		case "f":
-		case "/":
-			ui.text_filter.focus();
-			ui.text_filter.select();
-			break;
-		case "t":
-			ui.text_add_tag.focus();
-			ui.text_add_tag.select();
 			break;
 		case "w":
 		case "k":
@@ -795,6 +808,13 @@ document.addEventListener("keydown", (e) => {
 		case "d":
 		case "l":
 			grid.goEast(true);
+			break;
+		case "1": case "2": case "3": case "4": case "5":
+		case "6": case "7": case "8": case "9":
+			const name = tags_quick[parseInt(e.key) - 1];
+			if (name) {
+				applyTag(name);
+			}
 			break;
 		default:
 			return;
@@ -851,7 +871,7 @@ try {
 } catch { }
 
 // boot
-ui.text_filter.value = "";
-ui.text_add_tag.value = "";
+ui.search_text.value = "";
+ui.addtag_text.value = "";
 (async() => { getPosts(); })();
 (async() => { getTags(); })();

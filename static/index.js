@@ -46,7 +46,7 @@ function importTags(tags) {
 		}
 	}
 }
-function addTag(name) {
+function importTag(name) {
 	if (!tags_map.get(name)) {
 		const tag = { tag: name, kind: 0, count: 1 };
 		tags_map.set(name, tag);
@@ -61,15 +61,15 @@ function addQuickTag(name) {
 	if (tag && (tags_quick.indexOf(tag) < 0)) {
 		tags_quick.push(tag);
 		tags_quick.sort((a, b) => { return a.tag.localeCompare(b.tag); });
+		window.localStorage.setItem(
+			"net.frotz.imgbox.quicklist",
+			JSON.stringify(tags_quick));
 	}
 }
 function removeQuickTag(name) {
 	const tag = tags_map.get(name);
 	if (!tag) return;
-	const n = tags_quick.indexOf(tag);
-	if (n >= 0) {
-		tags_quick.splice(n, 1)
-	}
+	tags_quick = tags_quick.filter(t => t.tag != name);
 }
 
 function newTileGrid(_elem) {
@@ -283,6 +283,16 @@ function sidebarShowTags(post) {
 		let count = document.createElement("span");
 		count.innerText = tags_map.get(tag).count;
 		li.appendChild(count);
+		li.addEventListener("click", (e) => {
+			if (e.ctrlKey) {
+				removeTag(tag, post);
+			} else if (e.shiftKey) {
+				addQuickTag(tag);
+				sidebarUpdateQuickTags();
+			} else {
+				// search?
+			}
+		});
 		list.appendChild(li);
 	}
 	ui.tagsbox.replaceChildren(list);
@@ -313,7 +323,14 @@ function sidebarUpdateQuickTags() {
 		x.innerText = " + ";
 		y.innerText = tag.tag.replaceAll("_", " ");
 		li.replaceChildren(x, y);
-		li.addEventListener("click", (e) => { applyTag(tag.tag); });
+		li.addEventListener("click", (e) => {
+			if (e.ctrlKey) {
+				removeQuickTag(tag.tag);
+				sidebarUpdateQuickTags();
+			} else {
+				applyTag(tag.tag);
+			}
+		});
 		list.appendChild(li);
 	}
 	ui.morebox.replaceChildren(list);
@@ -404,57 +421,94 @@ function addTilesFromPosts(posts) {
 }
 
 // Backend JSON API Calls
-async function getPosts() {
-	grid.clear();
+
+async function callApi(api, args) {
 	try {
-	let after = null;
-	while (true) {
-		const rsp = await fetch("api/getRecentPosts", {
+		const rsp = await fetch(api, {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
-  			body: JSON.stringify({ after: after }),
-		});
-		const res = await rsp.json();
-		if (res.posts.length == 0) break;
-		addTilesFromPosts(res.posts);
-		after = res.posts.at(-1).post_id;
-	}
+			body: JSON.stringify(args),
+			});
+		const r = await rsp.json();
+		if (r.error) {
+			console.log(`RPC ERROR: ${r.error}`);
+		}
+		return r;
 	} catch (err) {
-    		console.error(err.message);
+		console.log(`TRANSPORT ERROR: ${err}`);
+		return { error: "transport" };
+	}
+}
+
+async function getPosts() {
+	grid.clear();
+	let after = null;
+	while (true) {
+		const r = await callApi("api/getRecentPosts", { after: after });
+		if (r.error) break;
+		if (r.posts.length == 0) break;
+		addTilesFromPosts(r.posts);
+		after = r.posts.at(-1).post_id;
 	}
 }
 
 async function findPosts(query) {
 	grid.clear();
-	try {
-		const rsp = await fetch("api/findPosts", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", },
-  			body: JSON.stringify({ query: query.trim() }),
-		});
-		const res = await rsp.json();
-		if (res.posts.length != 0) {
-			addTilesFromPosts(res.posts);
-		}
-	} catch (err) {
-    		console.error(err.message);
+	const r = await callApi("api/findPosts", { query: query.trim() });
+	if (r.error) return;
+	if (r.posts.length != 0) {
+		addTilesFromPosts(r.posts);
 	}
 }
 
 async function getTags() {
-	try {
-		const rsp = await fetch("api/getTags", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", },
-  			body: "{}",
-		});
-		const res = await rsp.json();
-		if (res.tags.length != 0) {
-			importTags(res.tags);
-		}
-	} catch (err) {
-    		console.error(err.message);
+	const r = await callApi("api/getTags", {});
+	if (r.error) return;
+	if (r.tags.length != 0) {
+		importTags(r.tags);
 	}
+}
+
+async function doRemoveTagFromPost(id, name) {
+	name = name.trim();
+	const r = await callApi("api/removeTagFromPost", { post_id: id, tag_name: name });
+	return r.error ? false : true;
+}
+
+async function doAddTagToPost(id, name) {
+	name = name.trim();
+	const r = await callApi("api/addTagToPost", { post_id: id, tag_name: name });
+	return r.error ? false : true;
+}
+
+function tagPosts(name, posts) {
+	name = name.trim();
+	if (!posts) return;
+	(async() => {
+		for (let post of posts) {
+			if (await doAddTagToPost(post.post_id, name)) {
+				console.log(`TAGGED ${post.post_id} WITH ${name}`);
+				post.tags.push(name);
+				post.tags = post.tags.sort();
+				importTag(name);
+				if (post == sidebar_post) {
+					sidebarShowPostInfo(post);
+				}
+			}
+		}
+	})();
+}
+
+function removeTag(name, post) {
+	(async() => {
+		if (await doRemoveTagFromPost(post.post_id, name)) {
+			console.log(`UNTAGGED ${post.post_id} WITH ${name}`);
+			post.tags = post.tags.filter(t => t !== name);
+			if (post === sidebar_post) {
+				sidebarShowPostInfo(post);
+			}
+		}
+	})();
 }
 
 // keyboard navigation
@@ -474,40 +528,6 @@ ui.text_filter.addEventListener("keydown", (e) => {
 	}
 	e.preventDefault();
 });
-
-async function doAddTagToPost(id, name) {
-	name = name.trim();
-	try {
-		const rsp = await fetch("api/addTagToPost", {
-			method: "POST",
-			headers: { "Content-Type": "application/json", },
-  			body: JSON.stringify({ post_id: id, tag_name: name }),
-		});
-		const res = await rsp.json();
-		console.log(`TAGGED ${id} WITH ${name}`);
-		return true;
-	} catch (err) {
-		console.log(err);
-		return false;
-	}
-}
-
-function tagPosts(name, posts) {
-	name = name.trim();
-	if (!posts) return;
-	(async() => {
-		for (let post of posts) {
-			if (await doAddTagToPost(post.post_id, name)) {
-				post.tags.push(name);
-				post.tags = post.tags.sort();
-				addTag(name);
-				if (post == sidebar_post) {
-					sidebarShowPostInfo(post);
-				}
-			}
-		}
-	})();
-}
 
 function setupTagCompletion(textbox, complist) {
 function updateCompList(e) {
@@ -827,6 +847,15 @@ document.addEventListener("keydown", (e) => {
 	}
 	event.preventDefault();
 });
+
+try {
+	let ql = JSON.parse(window.localStorage.getItem(
+		"net.frotz.imgbox.quicklist"));
+	if (ql instanceof Array) {
+		tags_quick = ql;
+	}
+	sidebarUpdateQuickTags();
+} catch { }
 
 // boot
 ui.text_filter.value = "";

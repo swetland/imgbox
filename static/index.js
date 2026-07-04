@@ -452,6 +452,7 @@ async function callApi(api, args) {
 			method: "POST",
 			headers: { "Content-Type": "application/json", },
 			body: JSON.stringify(args),
+			credentials: "include",
 			});
 		const r = await rsp.json();
 		if (r.error) {
@@ -547,8 +548,22 @@ function applyTag(name) {
 
 function setupTagCompletion(textbox, complist) {
 let cache = null;
+function selectItem(sel) {
+	let v = textbox.value;
+	if (v.endsWith(" ")) return;
+	let x = v.lastIndexOf(" ");
+	if (x > 0) {
+		v = v.substring(0, x + 1) + sel.dataset.tag;
+	} else {
+		v = sel.dataset.tag;
+	}
+	textbox.value = v + " ";
+	complist.replaceChildren();
+	complist.style.display = "none";
+	cache = null;
+}
 function updateCompList(e) {
-	let v = e.currentTarget.value;
+	let v = textbox.value;
 	let x = v.lastIndexOf(" ");
 	if (x > 0) {
 		v = v.substring(x + 1);
@@ -562,7 +577,7 @@ function updateCompList(e) {
 		return;
 	}
 	cache = v;
-	complist.style.width = window.getComputedStyle(textbox).width;
+	//complist.style.width = window.getComputedStyle(textbox).width;
 	let n = 0;
 	let ul = document.createElement("ul");
 	for (let tag of tags_list) {
@@ -586,6 +601,8 @@ function updateCompList(e) {
 			span.innerText = txt.substring(idx);
 			li.appendChild(span);
 		}
+		li.addEventListener("click", (e) => {
+			selectItem(e.currentTarget); });
 		ul.appendChild(li);
 		n++;
 		if (n == 20) break;
@@ -620,16 +637,7 @@ textbox.addEventListener("keydown", (e) => {
 		if (!(sel = complist.getElementsByClassName("selected").item(0))) {
 			return;
 		}
-		let v = e.currentTarget.value;
-		let x = v.lastIndexOf(" ");
-		if (x > 0) {
-			v = v.substring(0, x + 1) + sel.dataset.tag;
-		} else {
-			v = sel.dataset.tag;
-		}
-		e.currentTarget.value = v + " ";
-		complist.replaceChildren();
-		cache = null;
+		selectItem(sel);
 		break;
 	case "c":
 		if (e.ctrlKey) {
@@ -650,7 +658,7 @@ textbox.addEventListener("keydown", (e) => {
 	e.preventDefault();
 });
 textbox.addEventListener("blur", (e) => {
-	complist.style.display = "none";
+	setTimeout(() => { complist.style.display = "none"; }, 500);
 });
 }
 

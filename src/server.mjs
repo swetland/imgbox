@@ -148,7 +148,6 @@ export function createServer(_db, _options) {
 		}
 		const pass = createHash('sha1').update(msg.pass).digest('hex');
 		const user = db.getUserByName(msg.name);
-		console.log(user);
 		if (!user || user.password !== pass) {
 			return { error: "login failure" };
 		}

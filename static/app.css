@@ -61,6 +61,18 @@ page-sidebar input {
 	background-color: #eee;
 }
 
+alert-bar {
+	position: absolute;
+	bottom: 0px;
+	right: 0px;
+	background-color: #f00;
+	padding: 1em;
+	min-width: 20em;
+	border-radius: 5px;
+	border: 3px solid #fff;
+	display: none;
+}
+
 tile-grid {
 	display: grid;
 	grid-template-rows: var(--tile-grid);

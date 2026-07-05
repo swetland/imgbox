@@ -27,7 +27,20 @@ const ui = {
 	addtag_comp: ID("addtag-comp"),
 	viewer_vid: ID("viewer-vid"),
 	viewer_img: ID("viewer-img"),
+	alert_bar: ID("alert-bar"),
 };
+
+let alert_bar_timeout = null;
+
+function notify(msg) {
+	if (alert_bar_timeout) {
+		clearTimeout(alert_bar_timeout);
+	}
+	ui.alert_bar.innerText = msg;
+	ui.alert_bar.style.display = "block";
+	alert_bar_timeout = setTimeout(() => {
+		ui.alert_bar.style.display = "none"; }, 1500);
+}
 
 const posts_by_id = new Map();
 let viewer_is_open = false;
@@ -456,17 +469,19 @@ async function callApi(api, args) {
 			});
 		const r = await rsp.json();
 		if (r.error) {
+			notify(`RPC ERROR: ${r.error}`);
 			console.log(`RPC ERROR: ${r.error}`);
 		}
 		return r;
 	} catch (err) {
+		notify(`TRANSPORT ERROR: ${err}`);
 		console.log(`TRANSPORT ERROR: ${err}`);
 		return { error: "transport" };
 	}
 }
 
 async function getPosts() {
-	grid.clear();
+	clearTiles();
 	let after = null;
 	while (true) {
 		const r = await callApi("api/getRecentPosts", { after: after });
@@ -479,7 +494,7 @@ break;
 }
 
 async function findPosts(query) {
-	grid.clear();
+	clearTiles();
 	const r = await callApi("api/findPosts", { query: query.trim() });
 	if (r.error) return;
 	if (r.posts.length != 0) {
@@ -577,7 +592,6 @@ function updateCompList(e) {
 		return;
 	}
 	cache = v;
-	//complist.style.width = window.getComputedStyle(textbox).width;
 	let n = 0;
 	let ul = document.createElement("ul");
 	for (let tag of tags_list) {
@@ -801,20 +815,16 @@ document.addEventListener("keydown", (e) => {
 		case ";":
 			grid.toggle(grid.getActive());
 			break;
-		case "w":
-		case "k":
+		case "w": case "k": case "ArrowUp":
 			grid.goNorth(true);
 			break;
-		case "a":
-		case "h":
+		case "a": case "h": case "ArrowLeft":
 			grid.goWest(true);
 			break;
-		case "s":
-		case "j":
+		case "s": case "j": case "ArrowDown":
 			grid.goSouth(true);
 			break;
-		case "d":
-		case "l":
+		case "d": case "l": case "ArrowRight":
 			grid.goEast(true);
 			break;
 		case "1": case "2": case "3": case "4": case "5":

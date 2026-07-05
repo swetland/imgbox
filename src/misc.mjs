@@ -33,7 +33,7 @@ export function makeDir(dirpath) {
 		fatal(`not a directory: '${dirpath}'`);
 	}
 	try {
-		fs.mkdirSync(dirpath, 0o770);
+		fs.mkdirSync(dirpath, 0o755);
 	} catch (err) {
 		if (err.code === 'EEXIST') return;
 		fatal(`cannot create directory '${dirpath}'`);

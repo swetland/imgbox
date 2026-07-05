@@ -378,6 +378,26 @@ export function openDatabase(path) {
 		}
 	}
 
+	function backup(filename) {
+		const s = db.prepare("vacuum into ?;");
+		try {
+			s.run(filename);
+			return true;
+		} catch (err) {
+			console.error(err);
+			return false;
+		}
+	}
+
+	function shutdown() {
+		try {
+			const s = db.prepare("pragma wal_checkpoint(TRUNCATE);");
+			s.run();
+			db.close();
+		} catch (err) {
+			console.error(err);
+		}
+	}
 	return {
 		addPost,
 		getPostById, getPostBySHA1, getPostByMD5,
@@ -387,6 +407,7 @@ export function openDatabase(path) {
 		getTagByName,
 		addTagToPostByName,
 		removeTagFromPostByName,
+		backup, shutdown,
 		// debugging use:
 		db,
 	};

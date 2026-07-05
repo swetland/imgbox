@@ -50,6 +50,12 @@ console.log(options);
 
 const db = openDatabase(path.join(options.storageDir, "database.sqlite3"));
 
+process.on('SIGINT', () => {
+	console.error("\n*** SIGINT ***\n\n");
+	db.shutdown();
+	process.exit(0);
+});
+
 const server = createServer(db, options);
 
 server.start();

@@ -87,3 +87,8 @@ export const flags = {
 	AUDIO: 4,
 };
 
+export const perms = {
+	QUERY: 1,
+	UPLOAD: 2,
+	EDIT: 4,
+};

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<link rel="stylesheet" type="text/css" href="app.css" />
+</head>
+<body>
+<page-top>
+ <page-sidebar id="sidebar">
+  <sidebar-label>Username:</sidebar-label>
+  <input type="text" id="u" name="username" autocomplete="on">
+  <sidebar-label>Password:</sidebar-label>
+  <input type="password" id="p" name="password" autocomplete="on">
+  <sidebar-label></sidebar-label>
+  <sidebar-label></sidebar-label>
+  <input type="button" value="Login" id="x" style="width: 50%;">
+ </page-sidebar>
+ <page-main>
+ </page-main>
+</page-top>
+</body>
+<script>
+const u = document.getElementById("u");
+const p = document.getElementById("p");
+const x = document.getElementById("x");
+
+async function doLogin() {
+	let r = await fetch("api/login", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", },
+		body: JSON.stringify({ name: u.value, pass: p.value }),
+		credentials: "include",
+		});
+	r = await r.json();
+	console.log(r);
+	if (r.error) {
+		console.log(`ERROR: ${r.error}`);
+	} else {
+		window.location.replace("/");
+	}
+}
+
+u.addEventListener("change", () => p.focus());
+p.addEventListener("change", () => { x.focus(); doLogin(); });
+x.addEventListener("click", doLogin);
+</script>
+</html>
+

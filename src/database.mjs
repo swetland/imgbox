@@ -127,6 +127,13 @@ create trigger if not exists tr_posts_tags_del
       update tags set
          posts_count = posts_count - 1 where tag_id = old.tag_id;
    end;
+
+create table if not exists users (
+	user_id integer primary key not null unique,
+	name text not null unique,
+	password text not null,
+	perms integer not null default 0
+);
 `;
 
 const UNUSED = `
@@ -159,6 +166,16 @@ export function openDatabase(path) {
 	}
 
 	db.exec(dbInitScript);
+
+	const psGetUserByName = db.prepare(
+		'select * from users where name = ?');
+	function getUserByName(name) {
+		try {
+			return psGetUserByName.get(name);
+		} catch (err) {
+			error(err, "getUserByName");
+		}
+	}
 
 	const psGetPostTags = db.prepare(
 		'select name, category from posts_tags ' +
@@ -407,6 +424,7 @@ export function openDatabase(path) {
 		getTagByName,
 		addTagToPostByName,
 		removeTagFromPostByName,
+		getUserByName,
 		backup, shutdown,
 		// debugging use:
 		db,

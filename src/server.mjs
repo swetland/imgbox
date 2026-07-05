@@ -2,17 +2,44 @@
 // Licensed under the Apache License, Version 2.0.
 
 import { createWebServer } from './webserver.mjs';
-import { flags } from './misc.mjs';
+import { flags, perms, randomBytes } from './misc.mjs';
 import media from './media.mjs';
 
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
+
+const re_is_hex_digits = /[0-9a-fA-F]+/;
 
 export function createServer(_db, _options) {
 	const db = _db;
 	const options = _options;
-	const webserver = createWebServer(options);
 	const thumbnail_sizes = [ 384, 768 ];
+
+	const default_session = { username: "anonymous", perms: 0, }
+	const sessions = new Map();
+
+	async function makeSession(session) {
+		while (true) {
+			const sid = (await randomBytes(32)).toString('hex');
+			if (sessions.get(sid)) continue;
+			session.sid = sid;
+			sessions.set(sid, session);
+			return sid;
+		}
+	}
+
+	function getSession(sid) {
+		if ((typeof sid !== 'string') ||
+			(sid.length != 64) ||
+			(!re_is_hex_digits.test(sid))) {
+			return default_session;
+		}
+		const session = sessions.get(sid);
+		return session ? session : default_session;
+	}
+
+	const webserver = createWebServer(options, getSession);
 
 	function mediaDir(sha1) {
 		// ${storageDir}/media/##/...
@@ -24,21 +51,32 @@ export function createServer(_db, _options) {
 		return `media/${sha1.substring(0, 2)}/`
 	}
 
+	const err_database = { error: "database" };
+	const err_perms = { error: "permissions" };
+	const err_notfound = { error: "not found" };
+	const okay = {};
+
 	// post_id: tag_name:
-	function doApiAddTagToPost(msg) {
+	function doApiAddTagToPost(req, res, msg) {
+		if (!(req.session.perms & perms.EDIT)) {
+			return err_perms;
+		}
 		if (!db.addTagToPostByName(msg.post_id, msg.tag_name)) {
-			return { error: "database" };
+			return err_datbase;
 		} else {
-			return {};
+			return okay;
 		}
 	}
 
 	// post_id: tag_name:
-	function doApiRemoveTagFromPost(msg) {
+	function doApiRemoveTagFromPost(req, res, msg) {
+		if (!(req.session.perms & perms.EDIT)) {
+			return err_perms;
+		}
 		if (!db.removeTagFromPostByName(msg.post_id, msg.tag_name)) {
-			return { error: "database" };
+			return err_database;
 		} else {
-			return {};
+			return okay;
 		}
 	}
 
@@ -52,17 +90,23 @@ export function createServer(_db, _options) {
 	}
 
 	// post_id
-	function doApiGetPost(msg) {
+	function doApiGetPost(req, res, msg) {
+		if (!(req.session.perms & perms.QUERY)) {
+			return err_perms;
+		}
 		const post = db.getPostById(msg.post_id);
 		if (post) {
 			preparePost(post);
 			return { post: post };
 		} else {
-			return { error: "does not exist" };
+			return err_notfound;
 		}
 	}
 
-	function doApiGetRecentPosts(msg) {
+	function doApiGetRecentPosts(req, res, msg) {
+		if (!(req.session.perms & perms.QUERY)) {
+			return err_perms;
+		}
 		let posts = db.getRecentPosts(50, parseInt(msg.after, 10));
 		for (let p of posts) {
 			preparePost(p);
@@ -70,7 +114,10 @@ export function createServer(_db, _options) {
 		return { posts: posts };
 	}
 
-	function doApiFindPosts(msg) {
+	function doApiFindPosts(req, res, msg) {
+		if (!(req.session.perms & perms.QUERY)) {
+			return err_perms;
+		}
 		let posts = db.findPosts(msg.query);
 		if (posts) {
 			for (let p of posts) {
@@ -82,13 +129,34 @@ export function createServer(_db, _options) {
 		}
 	}
 
-	function doApiGetTags(msg) {
+	function doApiGetTags(req, res, msg) {
+		if (!(req.session.perms & perms.QUERY)) {
+			return err_perms;
+		}
 		let tags = db.getTags();
 		if (tags) {
 			return { tags: tags };
 		} else {
 			return { tags: [] };
 		}
+	}
+
+	async function doLogin(req, res, msg) {
+		if ((typeof msg.name !== 'string') ||
+			(typeof msg.pass !== 'string')) {
+			return { error: "bad parameters" };
+		}
+		const pass = createHash('sha1').update(msg.pass).digest('hex');
+		const user = db.getUserByName(msg.name);
+		console.log(user);
+		if (!user || user.password !== pass) {
+			return { error: "login failure" };
+		}
+		const sid = await makeSession({ username: user.name, perms: user.perms });
+		res.setHeader("Set-Cookie",
+			`session=${sid}; Path=/; Secure; HttpOnly; SameSite=Lax`);
+		console.log(`SESSION ${sid}: user='${user.name}' perms=${user.perms}`);
+		return {}
 	}
 
 	const endpoints = {
@@ -98,11 +166,12 @@ export function createServer(_db, _options) {
 		"addTagToPost": doApiAddTagToPost,
 		"removeTagFromPost": doApiRemoveTagFromPost,
 		"getTags": doApiGetTags,
+		"login": doLogin,
 	}
-	function doAPI(msg, relpath) {
+	async function doAPI(req, res, msg, relpath) {
 		const fn = endpoints[relpath];
 		if (fn) {
-			return fn(msg);
+			return fn(req, res, msg);
 		}
 		return { error: "invalid endpoint" };
 	}

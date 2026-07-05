@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import url from 'node:url';
+import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import * as misc from './misc.mjs';
 
@@ -22,9 +23,8 @@ const default_mimetypes = {
 	js: "application/javascript",
 };
 
-import { createHash } from 'node:crypto';
 
-export function createWebServer(options) {
+export function createWebServer(options, _getSession) {
 	const host = options.host || "localhost";
 	const port = options.port || 8000;
 	const baseurl = `http://${host}:${port}`;
@@ -35,8 +35,21 @@ export function createWebServer(options) {
 	const maxUploadSizeMB = options.maxUploadSizeMB || 8;
 	const uploadDir = options.uploadDir || "/tmp";
 	const maxUploadSize = maxUploadSizeMB * 1024 * 1024;
+	const getSession = _getSession ? _getSession : () => { return {}; };
+
+	function getCookie(req, name) {
+		let c = req.headers['cookie'];
+		if (!c) return null;
+		for (let x of c.split(";")) {
+			x = x.trim();
+			if (x.startsWith(name)) {
+				return x.substring(name.length);
+			}
+		}
+	}
 
 	function handler(req, res) {
+		req.session = getSession(getCookie(req, "session="));
 		try {
 			const u = new URL(req.url, baseurl);
 			const path = u.pathname;
@@ -67,7 +80,9 @@ export function createWebServer(options) {
 		//console.log("static: RELPATH: " + relpath);
 
 		const paths = [ctx.fspath, relpath];
-		if (relpath.endsWith("/")) paths.push("index.html")
+		if ((relpath === "") || relpath.endsWith("/")) {
+			paths.push("index.html")
+		}
 		const fspath = path.join(...paths);
 		//console.log(`static: FSPATH: ${fspath}`);
 
@@ -149,7 +164,7 @@ export function createWebServer(options) {
 			}
 			let text;
 			try {
-				let r = await ctx.apifn(msg, relpath);
+				let r = await ctx.apifn(req, res, msg, relpath);
 				text = JSON.stringify(r);
 			} catch (err) {
 				console.log(`endpoint: error: ${err.stack}`);

@@ -190,9 +190,20 @@ export function createWebServer(options, _getSession) {
 			res.setHeader("Allow", "POST");
 			return handleError(res, 405, "method not allowed");
 		}
-		const contentType = req.headers['content-type'] || '';
-		//TODO: preflight check for too-large upload based on headers
 
+		let contentLength = req.headers['content-length'];
+		if (contentLength && (contentLength > maxUploadSize)) {
+			return handleError(res, 413, "payload too large");
+		}
+		try {
+			let r = await ctx.chkfn(req, res, relpath);
+			if (!r) {
+				return handleError(res, 400, "permission");
+			}
+		} catch (err) {
+			console.log(`upload: chkfn: ${err.stack}`);
+			return handleError(res, 500, "internal error");
+		}
 		let size = 0;
 		const md5 = createHash('md5');
 		const sha1 = createHash('sha1');
@@ -228,8 +239,7 @@ export function createWebServer(options, _getSession) {
 		}
 		let text;
 		try {
-			let r = await ctx.apifn({
-				type: contentType,
+			let r = await ctx.apifn(req, res, {
 				md5: md5.digest('hex'),
 				sha1: sha1.digest('hex'),
 				path: path,
@@ -253,8 +263,8 @@ export function createWebServer(options, _getSession) {
 	function addEndpoint(urlpath, apifn) {
 		handlers.push({ urlpath, apifn, fn: handleEndpoint });
 	}
-	function addUploadEndpoint(urlpath, apifn) {
-		handlers.push({ urlpath, apifn, fn: handleUploadEndpoint });
+	function addUploadEndpoint(urlpath, chkfn, apifn) {
+		handlers.push({ urlpath, chkfn, apifn, fn: handleUploadEndpoint });
 	}
 	function start() {
 		server.listen(port, host, () => {

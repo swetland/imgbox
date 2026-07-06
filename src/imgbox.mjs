@@ -12,7 +12,8 @@ if (process.argv.length != 3) {
 const cfn = process.argv[2];
 
 const keys = {
-	host:"s", port:"i", storageDir:"s", staticDir:"s", maxUploadSizeMB:"i"
+	host:"s", port:"i", storageDir:"s", staticDir:"s",
+	maxUploadSizeMB:"i", defaultPerms:"i",
 };
 
 let options;

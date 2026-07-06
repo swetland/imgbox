@@ -15,8 +15,10 @@ export function createServer(_db, _options) {
 	const db = _db;
 	const options = _options;
 	const thumbnail_sizes = [ 384, 768 ];
-
-	const default_session = { username: "anonymous", perms: 0, }
+	const default_session = {
+		username: "anonymous",
+		perms: options.defaultPerms ? options.defaultPerms : 1,
+	};
 	const sessions = new Map();
 
 	async function makeSession(session) {
@@ -175,6 +177,12 @@ export function createServer(_db, _options) {
 		return { error: "invalid endpoint" };
 	}
 
+	async function doCheckUpload(req, res, relpath) {
+		if (req.session.perms & perms.UPLOAD) {
+			return true;
+		}
+	}
+
 	async function mkthumbs(base, mi) {
 		try {
 			let src = base;
@@ -230,7 +238,7 @@ export function createServer(_db, _options) {
 			return { post_id: id };
 		}
 	}
-	async function doUpload(info, relpath) {
+	async function doUpload(req, res, info, relpath) {
 		let filename;
 		try {
 			filename = decodeURIComponent(relpath);
@@ -267,7 +275,7 @@ export function createServer(_db, _options) {
 	}
 
 	webserver.addEndpoint("/api/", doAPI);
-	webserver.addUploadEndpoint("/upload/", doUpload);
+	webserver.addUploadEndpoint("/upload/", doCheckUpload, doUpload);
 	webserver.addStatic("/media/", options.mediaDir);
 	webserver.addStatic("/", options.staticDir);
 

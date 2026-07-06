@@ -41,6 +41,10 @@ makeDir(options.uploadDir);
 makeDir(options.mediaDir);
 makeDir(options.staticDir);
 
+if (!options.hasOwnProperty("defaultPerms")) {
+	options.defaultPerms = 1;
+}
+
 for (let a of "0123456789abcdef") {
 	for (let b of "0123456789abcdef") {
 		makeDir(path.join(options.mediaDir, a + b));

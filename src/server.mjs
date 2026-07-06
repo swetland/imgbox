@@ -17,7 +17,7 @@ export function createServer(_db, _options) {
 	const thumbnail_sizes = [ 384, 768 ];
 	const default_session = {
 		username: "anonymous",
-		perms: options.defaultPerms ? options.defaultPerms : 1,
+		perms: options.defaultPerms,
 	};
 	const sessions = new Map();
 

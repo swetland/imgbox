@@ -318,7 +318,7 @@ function sidebarShowTags(post) {
 				addQuickTag(tag);
 				sidebarUpdateQuickTags();
 			} else {
-				// search?
+				doSearch(tag);
 			}
 			e.preventDefault();
 		});
@@ -681,6 +681,12 @@ textbox.addEventListener("blur", (e) => {
 
 setupTagCompletion(ui.addtag_text, ui.addtag_comp);
 setupTagCompletion(ui.search_text, ui.search_comp);
+
+function doSearch(text) {
+	ui.search_text.value = text;
+	ui.search_text.blur();
+	(async() => { findPosts(text); })();
+}
 
 // do this after setupTagCompletion so the completer
 // handles Enter events first

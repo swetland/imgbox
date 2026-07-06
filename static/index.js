@@ -28,7 +28,10 @@ const ui = {
 	viewer_vid: ID("viewer-vid"),
 	viewer_img: ID("viewer-img"),
 	alert_bar: ID("alert-bar"),
+	help: ID("help"),
 };
+
+ui.help.addEventListener("click", (e) => { ui.help.style.display = "none"; });
 
 let alert_bar_timeout = null;
 
@@ -687,6 +690,8 @@ ui.search_text.addEventListener("keydown", (e) => {
 	case "Enter":
 		const v = x.value;
 		(async() => { findPosts(v); })();
+		x.blur();
+		break;
 	case "Escape":
 		x.value = "";
 		x.blur();
@@ -733,12 +738,14 @@ function viewerHandleKeydown(e) {
 	case "m":
 		ui.viewer_vid.muted = !ui.viewer_vid.muted;
 		break;
+/*
 	case "ArrowLeft":
 		videoSeekRelative(ui.viewer_vid, -vidskip);
 		break;
 	case "ArrowRight":
 		videoSeekRelative(ui.viewer_vid, +vidskip);
 		break;
+*/
 	case ",":
 		ui.viewer_vid.pause();
 		videoSeekRelative(ui.viewer_vid, -vidstep);
@@ -755,6 +762,7 @@ function viewerHandleKeydown(e) {
 }
 
 document.addEventListener("keydown", (e) => {
+	if (e.altKey || e.metaKey) return;
 	let istextbox = (e.target.nodeName === "INPUT");
 
 	// control-key actions are global
@@ -793,7 +801,6 @@ document.addEventListener("keydown", (e) => {
 		grid.deselectAll();
 		e.preventDefault();
 		return;
-	case "f":
 	case "/":
 		ui.search_text.focus();
 		ui.search_text.select();
@@ -815,16 +822,16 @@ document.addEventListener("keydown", (e) => {
 		case ";":
 			grid.toggle(grid.getActive());
 			break;
-		case "w": case "k": case "ArrowUp":
+		case "k": case "ArrowUp":
 			grid.goNorth(true);
 			break;
-		case "a": case "h": case "ArrowLeft":
+		case "h": case "ArrowLeft":
 			grid.goWest(true);
 			break;
-		case "s": case "j": case "ArrowDown":
+		case "j": case "ArrowDown":
 			grid.goSouth(true);
 			break;
-		case "d": case "l": case "ArrowRight":
+		case "l": case "ArrowRight":
 			grid.goEast(true);
 			break;
 		case "1": case "2": case "3": case "4": case "5":
@@ -856,14 +863,10 @@ document.addEventListener("keydown", (e) => {
 	case ";":
 		grid.toggle(viewer_post);
 		break;
-	case "a": case "w":
-	case "h": case "k":
-	case "ArrowLeft":
+	case "h": case "k": case "ArrowLeft":
 		openViewer(grid.prev(viewer_post));
 		break;
-	case "d": case "s":
-	case "l": case "j":
-	case "ArrowRight":
+	case "l": case "j": case "ArrowRight":
 		openViewer(grid.next(viewer_post));
 		break;
 	case "z":

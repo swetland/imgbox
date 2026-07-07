@@ -28,8 +28,46 @@ const ui = {
 	viewer_vid: ID("viewer-vid"),
 	viewer_img: ID("viewer-img"),
 	alert_bar: ID("alert-bar"),
+	upload: ID("upload"),
 	help: ID("help"),
+	upload_list: ID("upload-list"),
 };
+
+const menubar = [];
+
+function menuClick(name) {
+	for (let x of menubar) {
+		if (x.name === name) {
+			x.mode.style.display = "flex";
+			x.menu.classList.add("active");
+		} else {
+			x.mode.style.display = "none";
+			x.menu.classList.remove("active");
+		}
+	}
+}
+
+for (let x of [ "info", "upload", "help" ]) {
+	const menu = ID("menu-" + x);
+	const mode = ID("mode-" + x);
+	menubar.push( { name: x, mode, menu } );
+	menu.addEventListener("click", (e) => { menuClick(x); });
+}
+
+ui.upload.addEventListener("change", async (e) => {
+	const files = ui.upload.files;
+	ui.upload.value = null;
+	const list = document.createElement("button-stack");
+	const work = [];
+	for (let f of files) {
+		const b = document.createElement("button");
+		b.innerText = f.name;
+		list.appendChild(b);
+		work.push({ name: f.name, file: f, button: b });
+	}
+	ui.upload_list.replaceChildren(list);
+	uploadFiles(work);
+});
 
 ui.help.addEventListener("click", (e) => { ui.help.style.display = "none"; });
 
@@ -304,9 +342,9 @@ function addListItem(list, label, text) {
 }
 
 function sidebarShowTags(post) {
-	const list = document.createElement("ul");
+	const list = document.createElement("button-stack");
 	for (let tag of post.tags) {
-		let li = document.createElement("li");
+		let li = document.createElement("button");
 		li.innerText = tag.replaceAll("_"," ");
 		let count = document.createElement("span");
 		count.innerText = tags_map.get(tag).count;
@@ -339,15 +377,17 @@ function sidebarShowPostInfo(post) {
 			addListItem(list, "Duration", formatDuration(post.duration));
 		}
 		sidebarShowTags(post);
+	} else {
+		ui.infotags.replaceChildren();
 	}
 	ui.infobox.replaceChildren(list);
 }
 
 function sidebarUpdateQuickTags() {
-	const list = document.createElement("ul");
+	const list = document.createElement("button-stack");
 	let n = 1;
 	for (let tag of tags_quick) {
-		let li = document.createElement("li");
+		let li = document.createElement("button");
 		let x = document.createElement("strong");
 		let y = document.createElement("span");
 		//x.innerText = " + ";
@@ -462,6 +502,49 @@ function addTilesFromPosts(posts) {
 
 // Backend JSON API Calls
 
+async function callUpload(filename, body, quiet) {
+	try {
+		const rsp = await fetch(`upload/${filename}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/octet-stream", },
+			body: body,
+			credentials: "include",
+			});
+		const r = await rsp.json();
+		if (r.error) {
+			if (!quiet) notify(`RPC ERROR: ${r.error}`);
+			console.log(`RPC ERROR: ${r.error}`);
+		}
+		return r;
+	} catch (err) {
+		notify(`TRANSPORT ERROR: ${err}`);
+		console.log(`TRANSPORT ERROR: ${err}`);
+		return { error: "transport" };
+	}
+}
+
+async function uploadFiles(work) {
+	clearTiles();
+	for (let w of work) {
+		const r = await callUpload(w.name, w.file, true);
+		if (r.error) {
+			if (r.error === "duplicate") {
+				w.button.classList.add("dup");
+			} else {
+				w.button.classList.add("fail");
+				continue;
+			}
+		} else {
+			w.button.classList.add("okay");
+		}
+		if (r.post_id) {
+			const post = await getPostById(r.post_id);
+			if (post) addTilesFromPosts([ post ]);
+		}
+		w.button.parentNode.removeChild(w.button);
+	}
+}
+
 async function callApi(api, args) {
 	try {
 		const rsp = await fetch(api, {
@@ -481,6 +564,12 @@ async function callApi(api, args) {
 		console.log(`TRANSPORT ERROR: ${err}`);
 		return { error: "transport" };
 	}
+}
+
+async function getPostById(id) {
+	const r = await callApi("api/getPost", { post_id: id });
+	if (r.error) return null;
+	return r.post;
 }
 
 async function getPosts() {
@@ -808,11 +897,13 @@ document.addEventListener("keydown", (e) => {
 		e.preventDefault();
 		return;
 	case "/":
+		menuClick("info");
 		ui.search_text.focus();
 		ui.search_text.select();
 		e.preventDefault();
 		return;
 	case "t":
+		menuClick("info");
 		ui.addtag_text.focus();
 		ui.addtag_text.select();
 		e.preventDefault();

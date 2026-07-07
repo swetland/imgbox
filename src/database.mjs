@@ -350,7 +350,7 @@ export function openDatabase(path) {
 	const psFindPosts = db.prepare(
 		'select * from posts where filename like ? order by post_id desc');
 	const psFindNoTags = db.prepare(
-		'select * from posts where tags_count = 0');
+		'select * from posts where tags_count = 0 order by post_id desc');
 	const psFindPostsByTag = db.prepare(
 		'with list as (select post_id, tag_id, count(*) from posts_tags where tag_id in (?) group by post_id having count(*) = 1) select posts.* from posts, list where posts.post_id = list.post_id order by post_id desc;');
 	const psFindPostsByTag2 = db.prepare(

@@ -81,6 +81,9 @@ button-stack button {
 	text-align: left;
 	border-style: solid;
 }
+#upload {
+	display: none;
+}
 #upload-list {
 	overflow: auto;
 }

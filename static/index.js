@@ -16,6 +16,7 @@ function ID(id) {
 const ui = {
 	tilegrid: ID("tilegrid"),
 	viewer: ID("viewer"),
+	sidebar: ID("sidebar"),
 	infobox: ID("infobox"),
 	infotags: ID("infotags"),
 	quicktags: ID("quicktags"),
@@ -29,7 +30,6 @@ const ui = {
 	viewer_img: ID("viewer-img"),
 	alert_bar: ID("alert-bar"),
 	upload: ID("upload"),
-	help: ID("help"),
 	upload_list: ID("upload-list"),
 };
 
@@ -51,11 +51,19 @@ for (let x of [ "info", "upload", "help" ]) {
 	const menu = ID("menu-" + x);
 	const mode = ID("mode-" + x);
 	menubar.push( { name: x, mode, menu } );
-	menu.addEventListener("click", (e) => { menuClick(x); });
+	if (name === "upload") {
+		menu.addEventListener("click", (e) => {
+			menuClick(x);
+			ui.upload.click();
+		});
+	} else {
+		menu.addEventListener("click", (e) => {
+			menuClick(x);
+		});
+	}
 }
 
-ui.upload.addEventListener("change", async (e) => {
-	const files = ui.upload.files;
+async function uploadFileList(files) {
 	ui.upload.value = null;
 	const list = document.createElement("button-stack");
 	const work = [];
@@ -66,10 +74,25 @@ ui.upload.addEventListener("change", async (e) => {
 		work.push({ name: f.name, file: f, button: b });
 	}
 	ui.upload_list.replaceChildren(list);
+	ui.tilegrid.focus();
 	uploadFiles(work);
+}
+ui.upload.addEventListener("cancel", (e) => {
+	menuClick("info");
+	ui.tilegrid.focus();
 });
-
-ui.help.addEventListener("click", (e) => { ui.help.style.display = "none"; });
+ui.upload.addEventListener("change", async (e) => {
+	uploadFileList(ui.upload.files);
+});
+ui.sidebar.addEventListener("dragenter", (e) => { e.preventDefault(); });
+ui.sidebar.addEventListener("dragover", (e) => { e.preventDefault(); });
+ui.sidebar.addEventListener("drop", (e) => {
+	e.preventDefault();
+	const dt = e.dataTransfer;
+	const files = dt.files;
+	menuClick("upload");
+	uploadFileList(files);
+});
 
 let alert_bar_timeout = null;
 
@@ -541,7 +564,11 @@ async function uploadFiles(work) {
 			const post = await getPostById(r.post_id);
 			if (post) addTilesFromPosts([ post ]);
 		}
-		w.button.parentNode.removeChild(w.button);
+		const p = w.button.parentNode;
+		p.removeChild(w.button);
+		if (p.childElementCount == 0) {
+			menuClick("info");
+		}
 	}
 }
 

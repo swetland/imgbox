@@ -9,6 +9,11 @@ It expects to run the mediainfo, ffmpeg, and imagemagick binaries to process
 imported/uploaded images and video and does not (yet) use any kind of isolation
 when executing them.
 
+### Running
+
+1. Copy `sample.server.conf` to `server.conf`
+2. Edit to point it at a suitable data storage directory, etc
+3. `node src/imgbox.mjs server.conf`
 
 ### nginx config snippet
 

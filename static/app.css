@@ -60,6 +60,7 @@ sidebar-menu button {
 	border-radius: 5px;
 	font-weight: bold;
 	border-style: solid;
+	cursor: pointer;
 }
 #menu-x::before {
 	content: url("icon/list.svg");
@@ -80,6 +81,7 @@ button-stack button {
 	border-radius: 5px;
 	text-align: left;
 	border-style: solid;
+	cursor: pointer;
 }
 #upload {
 	display: none;

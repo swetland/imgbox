@@ -486,6 +486,7 @@ function openViewer(post) {
 		ui.viewer.style.display = "flex";
 	}
 	sidebarShowPostInfo(post);
+	ui.viewer.focus();
 }
 
 function clearTiles() {
@@ -860,14 +861,12 @@ function viewerHandleKeydown(e) {
 	case "m":
 		ui.viewer_vid.muted = !ui.viewer_vid.muted;
 		break;
-/*
 	case "ArrowLeft":
 		videoSeekRelative(ui.viewer_vid, -vidskip);
 		break;
 	case "ArrowRight":
 		videoSeekRelative(ui.viewer_vid, +vidskip);
 		break;
-*/
 	case ",":
 		ui.viewer_vid.pause();
 		videoSeekRelative(ui.viewer_vid, -vidstep);
@@ -987,10 +986,10 @@ document.addEventListener("keydown", (e) => {
 	case ";":
 		grid.toggle(viewer_post);
 		break;
-	case "h": case "k": case "ArrowLeft":
+	case "h": case "k": case "PageUp":
 		openViewer(grid.prev(viewer_post));
 		break;
-	case "l": case "j": case "ArrowRight":
+	case "l": case "j": case "PageDown":
 		openViewer(grid.next(viewer_post));
 		break;
 	case "z":

@@ -2,24 +2,36 @@
 // Licensed under the Apache License, Version 2.0.
 
 import { DatabaseSync } from 'node:sqlite';
-import { isValidTag } from './misc.mjs';
+import { fatal, isValidTag } from './misc.mjs';
 
 const ERR_CONSTRAINT_FOREIGNKEY = 787;
 const ERR_CONSTRAINT_UNIQUE = 2067;
 const ERR_CONSTRAINT_NOTNULL = 1299;
 
-const dbInitScript = `
-pragma foreign_keys = ON;
+// flags
+// 1 image
+// 2 video
+// 4 audio
 
+const script_config_db = `
+pragma foreign_keys = ON;
 pragma temp_storage = MEMORY;
 pragma journal_mode = WAL;
 pragma synchronous = NORMAL;
 pragma cache_size = -32768;
+`
 
--- flags
--- 1 image
--- 2 video
--- 4 audio
+const script_init_v1 = `
+create table if not exists imgbox_db_ver (
+	version integer
+) strict;
+
+create table if not exists users (
+	user_id integer primary key not null unique,
+	name text not null unique,
+	password text not null,
+	perms integer not null default 0
+) strict;
 
 create table if not exists posts (
 	post_id integer primary key not null unique,
@@ -42,18 +54,18 @@ create table if not exists posts (
 		references posts (post_id)
 		on update set null
 		on delete set null
-);
+) strict;
 create index if not exists
-	index_posts_md5 on posts(md5);
+	idx_posts_md5 on posts(md5);
 
 create table if not exists tags (
 	tag_id integer primary key not null unique,
 	name text not null unique,
 	posts_count integer default 0 not null,
 	category integer default 0 not null
-);
+) strict;
 create index if not exists
-	index_tags_name on tags(name);
+	idx_tags_name on tags(name);
 
 create table if not exists posts_tags (
 	post_id integer not null,
@@ -67,18 +79,18 @@ create table if not exists posts_tags (
 		references tags (tag_id)
 		on update restrict
 		on delete restrict
-);
+) strict;
 create index if not exists
-   index_posts_post_id on posts_tags(post_id);
+   idx_posts_tags_pid on posts_tags(post_id);
 create index if not exists
-   index_posts_tag_id on posts_tags(tag_id);
+   idx_posts_tags_tid on posts_tags(tag_id);
 
 create table if not exists collections (
 	collection_id integer primary key unique,
 	name text not null unique
-);
+) strict;
 create index if not exists
-	index_collections_name on collections(name);
+	idx_collections_name on collections(name);
 
 create table if not exists posts_collections (
 	collection_id integer not null,
@@ -92,20 +104,19 @@ create table if not exists posts_collections (
 		references posts (post_id)
 		on update restrict
 		on delete restrict
-);
+) strict;
 create index if not exists
-	index_posts_collections_collection_id on posts_collections(collection_id);
+	idx_posts_collections_cid on posts_collections(collection_id);
 create index if not exists
-	index_posts_collections_post_id on posts_collections(post_id);
+	idx_posts_collections_pid on posts_collections(post_id);
 
 -- update summary data in posts and tags tables
 -- when tag/post associations are added or removed
 -- in the post_tags table
 --
-create trigger if not exists tr_posts_tags_ins
+create trigger if not exists trg_posts_tags_ins
    after insert on posts_tags begin
       update posts set
-         updated_at = unixepoch(),
          tags_count = tags_count + 1,
          tags_string = (select group_concat(name, ' ' order by name)
             from posts_tags inner join tags using (tag_id)
@@ -115,10 +126,9 @@ create trigger if not exists tr_posts_tags_ins
          posts_count = posts_count + 1 where tag_id = new.tag_id;
    end;
 
-create trigger if not exists tr_posts_tags_del
+create trigger if not exists trg_posts_tags_del
    after delete on posts_tags begin
       update posts set
-         updated_at = unixepoch(),
          tags_count = tags_count - 1,
          tags_string = (select group_concat(name, ' ' order by name)
             from posts_tags inner join tags using (tag_id)
@@ -127,28 +137,36 @@ create trigger if not exists tr_posts_tags_del
       update tags set
          posts_count = posts_count - 1 where tag_id = old.tag_id;
    end;
-
-create table if not exists users (
-	user_id integer primary key not null unique,
-	name text not null unique,
-	password text not null,
-	perms integer not null default 0
-);
 `;
 
-const UNUSED = `
--- ensure created/modified dates are current
+const script_import_v0 = `
+insert into users (user_id, name, password, perms)
+select user_id, name, password, perms from xdbx.users;
+
+-- posts.tags_count, posts.tags_string will be recreated later
 --
-create trigger if not exists tr_posts_ins
-   after insert on posts begin
-      update posts set
-         created_at = unixepoch(),
-         updated_at = unixepoch()
-      where new.post_id = post_id;
-   end;
+insert into posts (post_id, created_at, updated_at, source, md5, sha1, format, bytes, filename, width, height, duration, flags, parent_id)
+select post_id, created_at, updated_at, source, md5, sha1, format, bytes, filename, width, height, duration, flags, parent_id from xdbx.posts;
+
+-- tags.posts_count will be recreated later
+--
+insert into tags (tag_id, name, category)
+select tag_id, name, category from xdbx.tags;
+
+-- triggers will update tags.posts_count
+-- posts.tags_count and posts.tags_string
+--
+insert into posts_tags (post_id, tag_id)
+select post_id, tag_id from xdbx.posts_tags;
+
+insert into collections (collection_id, name)
+select collection_id, name from xdbx.collections;
+
+insert into posts_collections (collection_id, post_id)
+select collection_id, post_id from xdbx.posts_collections;
 `;
 
-export function openDatabase(path) {
+export function openDatabase(path, opt) {
 	const db = new DatabaseSync(path, {
 		enableForeignKeyConstraints: true,
 		enableDoubleQuotedStringLiterals: false,
@@ -157,6 +175,67 @@ export function openDatabase(path) {
 		allowUnknownNamedParameters: false,
 	});
 
+	db.exec(script_config_db);
+
+	function checkEmpty() {
+		const r = db.prepare('select * from sqlite_schema;').all();
+		if (r.length) {
+			console.error(`database: error: non-empty database '${path}'`);
+			shutdown();
+			return false;
+		}
+		return true;
+	}
+
+	if (opt === "<<init>>") {
+		console.error(`database: initializing '${path}'`);
+		if (!checkEmpty()) return false;
+		db.exec(script_init_v1);
+		db.exec('insert into imgbox_db_ver (version) values (1);');
+		return shutdown();
+	}
+
+	if (typeof opt === "string") {
+		console.error(`database: importing '${opt}'`);
+		if (!checkEmpty()) return false;
+		try {
+			db.prepare('attach ? as xdbx;').run(opt);
+			db.exec('begin transaction;');
+			db.exec(script_init_v1);
+			db.exec('insert into imgbox_db_ver (version) values (1);');
+			db.exec(script_import_v0);
+			db.exec('commit;');
+		} catch (err) {
+			console.error(`database: error: import failed: ${err}`);
+			try {
+				db.exec('rollback;');
+			} catch (err) {
+				console.error(`database: error: ${err}`);
+			}
+			shutdown();
+			return false;
+		}
+		return shutdown();
+	}
+
+	if (checkEmpty()) {
+		fatal(`database: not initialized. use 'initdb' or 'importdb'`);
+	}
+
+	function getSchemaVersion() {
+		try {
+			const r = db.prepare('select * from imgbox_db_ver;').all();
+			return r[0].version;
+		} catch (err) {
+			return 0;
+		}
+	}
+
+	const v = getSchemaVersion();
+	if (v != 1) {
+		fatal(`database: unsupported db version ${v}`);
+	}
+
 	function error(err, where) {
 		if (err.code !== 'ERR_SQLITE_ERROR') {
 			console.log(`database: ${where}: error: ${err}`);
@@ -164,8 +243,6 @@ export function openDatabase(path) {
 			console.log(`database: ${where}: error: ${err}`);
 		}
 	}
-
-	db.exec(dbInitScript);
 
 	const psGetUserByName = db.prepare(
 		'select * from users where name = ?');
@@ -408,11 +485,12 @@ export function openDatabase(path) {
 
 	function shutdown() {
 		try {
-			const s = db.prepare("pragma wal_checkpoint(TRUNCATE);");
-			s.run();
+			db.exec("pragma wal_checkpoint(TRUNCATE);");
 			db.close();
+			return true;
 		} catch (err) {
 			console.error(err);
+			return false;
 		}
 	}
 	return {

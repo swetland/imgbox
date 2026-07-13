@@ -16,6 +16,8 @@ function ID(id) {
 const ui = {
 	tilegrid: ID("tilegrid"),
 	viewer: ID("viewer"),
+	viewinfo: ID("view-info"),
+	viewscroll: ID("view-scroller"),
 	sidebar: ID("sidebar"),
 	infobox: ID("infobox"),
 	infotags: ID("infotags"),
@@ -109,6 +111,7 @@ function notify(msg) {
 const posts_by_id = new Map();
 let viewer_is_open = false;
 let viewer_is_video = false;
+let viewer_show_info = true;
 let viewer_post = null;
 let sidebar_post = null;
 
@@ -460,6 +463,12 @@ function openViewer(post) {
 	viewer_is_open = true;
 	viewer_post = post;
 	ui.viewer_vid.pause();
+	if (viewer_show_info && post.filename) {
+		ui.viewinfo.innerText = post.filename;
+		ui.viewinfo.style.display = "block";
+	} else {
+		ui.viewinfo.style.display = "none";
+	}
 	if (post.flags & flags.VIDEO) {
 		viewer_is_video = true;
 		ui.viewer_img.style.display = "none";
@@ -486,7 +495,14 @@ function openViewer(post) {
 		ui.viewer.style.display = "flex";
 	}
 	sidebarShowPostInfo(post);
-	ui.viewer.focus();
+	ui.viewscroll.focus();
+}
+
+function toggleViewerInfo() {
+	viewer_show_info = !viewer_show_info;
+	if (viewer_is_open) {
+		openViewer(viewer_post);
+	}
 }
 
 function clearTiles() {
@@ -985,6 +1001,9 @@ document.addEventListener("keydown", (e) => {
 		break;
 	case ";":
 		grid.toggle(viewer_post);
+		break;
+	case 'i':
+		toggleViewerInfo();
 		break;
 	case "h": case "k": case "PageUp":
 		openViewer(grid.prev(viewer_post));

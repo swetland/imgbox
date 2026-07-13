@@ -49,11 +49,14 @@
 </sidebar-mode-set>
  </page-sidebar>
  <page-main>
-  <view-pane id="viewer" tabindex="-1">
-   <view-pane-div>
-    <img class="img-no-zoom" id="viewer-img" />
-    <video id="viewer-vid" controls loop></video>
-   </view-pane-div>
+  <view-pane id="viewer">
+   <view-scroller id="view-scroller" tabindex="-1">
+    <view-content>
+     <img class="img-no-zoom" id="viewer-img" />
+     <video id="viewer-vid" controls loop></video>
+    </view-content>
+   </view-scroller>
+   <view-info id="view-info"> </view-info>
   </view-pane>
   <tile-grid id="tilegrid"> </tile-grid>
  </page-main>

@@ -38,6 +38,8 @@ create table if not exists posts (
 	created_at integer default 0 not null,
 	updated_at integer default 0 not null,
 	source text default '' not null,
+	caption text default '' not null,
+	transcript text default '' not null,
 	md5 text not null unique,
 	sha1 text not null unique,
 	format text not null,
@@ -177,19 +179,22 @@ export function openDatabase(path, opt) {
 
 	db.exec(script_config_db);
 
-	function checkEmpty() {
+	const psBegin = db.prepare('begin transaction;');
+	const psCommit = db.prepare('commit;');
+	const psRollback = db.prepare('rollback;');
+
+	function isEmpty() {
 		const r = db.prepare('select * from sqlite_schema;').all();
-		if (r.length) {
-			console.error(`database: error: non-empty database '${path}'`);
-			shutdown();
-			return false;
-		}
-		return true;
+		return r.length ? false : true;
 	}
 
 	if (opt === "<<init>>") {
 		console.error(`database: initializing '${path}'`);
-		if (!checkEmpty()) return false;
+		if (!isEmpty()) {
+			console.error(`database: error: non-empty database '${path}'`);
+			shutdown();
+			return false;
+		}
 		db.exec(script_init_v1);
 		db.exec('insert into imgbox_db_ver (version) values (1);');
 		return shutdown();
@@ -197,7 +202,11 @@ export function openDatabase(path, opt) {
 
 	if (typeof opt === "string") {
 		console.error(`database: importing '${opt}'`);
-		if (!checkEmpty()) return false;
+		if (!checkEmpty()) {
+			console.error(`database: error: non-empty database '${path}'`);
+			shutdown();
+			return false;
+		}
 		try {
 			db.prepare('attach ? as xdbx;').run(opt);
 			db.exec('begin transaction;');
@@ -218,7 +227,7 @@ export function openDatabase(path, opt) {
 		return shutdown();
 	}
 
-	if (checkEmpty()) {
+	if (isEmpty()) {
 		fatal(`database: not initialized. use 'initdb' or 'importdb'`);
 	}
 

@@ -53,7 +53,7 @@ for (let x of [ "info", "upload", "help" ]) {
 	const menu = ID("menu-" + x);
 	const mode = ID("mode-" + x);
 	menubar.push( { name: x, mode, menu } );
-	if (name === "upload") {
+	if (x === "upload") {
 		menu.addEventListener("click", (e) => {
 			menuClick(x);
 			ui.upload.click();

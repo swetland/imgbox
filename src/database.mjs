@@ -202,7 +202,7 @@ export function openDatabase(path, opt) {
 
 	if (typeof opt === "string") {
 		console.error(`database: importing '${opt}'`);
-		if (!checkEmpty()) {
+		if (!isEmpty()) {
 			console.error(`database: error: non-empty database '${path}'`);
 			shutdown();
 			return false;

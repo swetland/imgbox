@@ -414,8 +414,7 @@ export function openDatabase(path, opt) {
 				return r.lastInsertRowid;
 			}
 		} catch (err) {
-			console.log("DATABASE GO BOOM");
-			console.log(err);
+			error(err, "addPost");
 		}
 		return null;
 	}

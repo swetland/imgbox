@@ -298,9 +298,23 @@ export function createWebServer(options) {
 			console.log(`SERVER: ${baseurl}`);
 		});
 	}
+
 	return {
 		start, makeSession,
 		addStaticDir, addEndpoint, addUploadEndpoint
 	};
 }
 
+export function readOptions(cfn, _keys) {
+	let keys = {
+		host:"s", port:"i", maxUploadSizeMB:"i",
+	};
+	if (_keys) {
+		keys = { ...keys, ..._keys };
+	}
+	try {
+		return misc.readOptionsFile(cfn, keys);
+	} catch (err) {
+		return null;
+	}
+}

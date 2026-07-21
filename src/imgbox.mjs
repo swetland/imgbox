@@ -2,7 +2,8 @@
 // Licensed under the Apache License, Version 2.0.
 
 import path from 'node:path';
-import { fatal, makeDir, readOptionsFile, randomBytes } from './misc.mjs';
+import { readOptions } from './webserver.mjs';
+import { fatal, makeDir } from './misc.mjs';
 import { createServer } from './server.mjs';
 import { openDatabase } from './database.mjs';
 
@@ -28,15 +29,10 @@ if (!commands.includes(command)) {
 }
 const cfn = process.argv[2];
 
-const keys = {
-	host:"s", port:"i", storageDir:"s", staticDir:"s",
-	maxUploadSizeMB:"i", defaultPerms:"i",
-};
-
-let options;
-try {
-	options = readOptionsFile(cfn, keys);
-} catch (err) {
+const options = readOptions(cfn, {
+	defaultPerms:"i", storageDir:"s", mediaDir:"s", staticDir:"s",
+});
+if (!options) {
 	fatal(`cannot read options file '${cfn}'`);
 }
 
@@ -56,16 +52,14 @@ if (!options.mediaDir) {
 makeDir(options.storageDir);
 makeDir(options.uploadDir);
 makeDir(options.mediaDir);
-makeDir(options.staticDir);
-
-if (!options.hasOwnProperty("defaultPerms")) {
-	options.defaultPerms = 1;
-}
-
 for (let a of "0123456789abcdef") {
 	for (let b of "0123456789abcdef") {
 		makeDir(path.join(options.mediaDir, a + b));
 	}
+}
+
+if (!options.hasOwnProperty("defaultPerms")) {
+	options.defaultPerms = 1;
 }
 
 console.log(options);

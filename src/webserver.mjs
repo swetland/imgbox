@@ -9,6 +9,8 @@ import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import * as misc from './misc.mjs';
 
+const re_is_hex_digits = /[0-9a-fA-F]+/;
+
 const default_mimetypes = {
 	html: "text/html; charset=UTF-8",
 	json: "application/json; charset=UTF-8",
@@ -24,7 +26,7 @@ const default_mimetypes = {
 };
 
 
-export function createWebServer(options, _getSession) {
+export function createWebServer(options) {
 	const host = options.host || "localhost";
 	const port = options.port || 8000;
 	const baseurl = `http://${host}:${port}`;
@@ -35,7 +37,30 @@ export function createWebServer(options, _getSession) {
 	const maxUploadSizeMB = options.maxUploadSizeMB || 8;
 	const uploadDir = options.uploadDir || "/tmp";
 	const maxUploadSize = maxUploadSizeMB * 1024 * 1024;
-	const getSession = _getSession ? _getSession : () => { return {}; };
+	const defaultSession = options.defaultSession ? options.defaultSession : { };
+	const sessions = new Map();
+
+	async function makeSession(txn, session) {
+		while (true) {
+			const sid = (await misc.randomBytes(32)).toString('hex');
+			if (sessions.get(sid)) continue;
+			session.sid = sid;
+			sessions.set(sid, session);
+			txn.res.setHeader("Set-Cookie",
+				`session=${sid}; Path=/; Secure; HttpOnly; SameSite=Lax`);
+			return sid;
+		}
+	}
+
+	function getSession(sid) {
+		if ((typeof sid !== 'string') ||
+			(sid.length != 64) ||
+			(!re_is_hex_digits.test(sid))) {
+			return defaultSession;
+		}
+		const session = sessions.get(sid);
+		return session ? session : defaultSession;
+	}
 
 	function getCookie(req, name) {
 		let c = req.headers['cookie'];
@@ -164,7 +189,8 @@ export function createWebServer(options, _getSession) {
 			}
 			let text;
 			try {
-				let r = await ctx.apifn(req, res, msg, relpath);
+				const txn = { req, res, session: req.session };
+				let r = await ctx.apifn(txn, msg, relpath);
 				text = JSON.stringify(r);
 			} catch (err) {
 				console.log(`endpoint: error: ${err.stack}`);
@@ -195,8 +221,9 @@ export function createWebServer(options, _getSession) {
 		if (contentLength && (contentLength > maxUploadSize)) {
 			return handleError(res, 413, "payload too large");
 		}
+		const txn = { req, res, session: req.session };
 		try {
-			let r = await ctx.chkfn(req, res, relpath);
+			let r = await ctx.chkfn(txn, relpath);
 			if (!r) {
 				return handleError(res, 400, "permission");
 			}
@@ -239,7 +266,7 @@ export function createWebServer(options, _getSession) {
 		}
 		let text;
 		try {
-			let r = await ctx.apifn(req, res, {
+			let r = await ctx.apifn(txn, {
 				md5: md5.digest('hex'),
 				sha1: sha1.digest('hex'),
 				path: path,
@@ -257,7 +284,7 @@ export function createWebServer(options, _getSession) {
 	}
 
 	// public methods
-	function addStatic(urlpath, fspath) {
+	function addStaticDir(urlpath, fspath) {
 		handlers.push({ urlpath, fspath, fn: handleStatic });
 	}
 	function addEndpoint(urlpath, apifn) {
@@ -271,6 +298,9 @@ export function createWebServer(options, _getSession) {
 			console.log(`SERVER: ${baseurl}`);
 		});
 	}
-	return { start, addStatic, addEndpoint, addUploadEndpoint };
+	return {
+		start, makeSession,
+		addStaticDir, addEndpoint, addUploadEndpoint
+	};
 }
 

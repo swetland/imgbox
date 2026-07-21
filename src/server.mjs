@@ -2,46 +2,22 @@
 // Licensed under the Apache License, Version 2.0.
 
 import { createWebServer } from './webserver.mjs';
-import { flags, perms, randomBytes } from './misc.mjs';
+import { flags, perms } from './misc.mjs';
 import media from './media.mjs';
 
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const re_is_hex_digits = /[0-9a-fA-F]+/;
-
 export function createServer(_db, _options) {
 	const db = _db;
 	const options = _options;
 	const thumbnail_sizes = [ 384, 768 ];
-	const default_session = {
+	options.defaultSession = {
 		username: "anonymous",
 		perms: options.defaultPerms,
 	};
-	const sessions = new Map();
-
-	async function makeSession(session) {
-		while (true) {
-			const sid = (await randomBytes(32)).toString('hex');
-			if (sessions.get(sid)) continue;
-			session.sid = sid;
-			sessions.set(sid, session);
-			return sid;
-		}
-	}
-
-	function getSession(sid) {
-		if ((typeof sid !== 'string') ||
-			(sid.length != 64) ||
-			(!re_is_hex_digits.test(sid))) {
-			return default_session;
-		}
-		const session = sessions.get(sid);
-		return session ? session : default_session;
-	}
-
-	const webserver = createWebServer(options, getSession);
+	const ws = createWebServer(options);
 
 	function mediaDir(sha1) {
 		// ${storageDir}/media/##/...
@@ -59,8 +35,8 @@ export function createServer(_db, _options) {
 	const okay = {};
 
 	// post_id: tag_name:
-	function doApiAddTagToPost(req, res, msg) {
-		if (!(req.session.perms & perms.EDIT)) {
+	function doApiAddTagToPost(txn, msg) {
+		if (!(txn.session.perms & perms.EDIT)) {
 			return err_perms;
 		}
 		if (!db.addTagToPostByName(msg.post_id, msg.tag_name)) {
@@ -71,8 +47,8 @@ export function createServer(_db, _options) {
 	}
 
 	// post_id: tag_name:
-	function doApiRemoveTagFromPost(req, res, msg) {
-		if (!(req.session.perms & perms.EDIT)) {
+	function doApiRemoveTagFromPost(txn, msg) {
+		if (!(txn.session.perms & perms.EDIT)) {
 			return err_perms;
 		}
 		if (!db.removeTagFromPostByName(msg.post_id, msg.tag_name)) {
@@ -92,8 +68,8 @@ export function createServer(_db, _options) {
 	}
 
 	// post_id
-	function doApiGetPost(req, res, msg) {
-		if (!(req.session.perms & perms.QUERY)) {
+	function doApiGetPost(txn, msg) {
+		if (!(txn.session.perms & perms.QUERY)) {
 			return err_perms;
 		}
 		const post = db.getPostById(msg.post_id);
@@ -105,8 +81,8 @@ export function createServer(_db, _options) {
 		}
 	}
 
-	function doApiGetRecentPosts(req, res, msg) {
-		if (!(req.session.perms & perms.QUERY)) {
+	function doApiGetRecentPosts(txn, msg) {
+		if (!(txn.session.perms & perms.QUERY)) {
 			return err_perms;
 		}
 		let posts = db.getRecentPosts(50, parseInt(msg.after, 10));
@@ -116,8 +92,8 @@ export function createServer(_db, _options) {
 		return { posts: posts };
 	}
 
-	function doApiFindPosts(req, res, msg) {
-		if (!(req.session.perms & perms.QUERY)) {
+	function doApiFindPosts(txn, msg) {
+		if (!(txn.session.perms & perms.QUERY)) {
 			return err_perms;
 		}
 		let posts = db.findPosts(msg.query);
@@ -131,8 +107,8 @@ export function createServer(_db, _options) {
 		}
 	}
 
-	function doApiGetTags(req, res, msg) {
-		if (!(req.session.perms & perms.QUERY)) {
+	function doApiGetTags(txn, msg) {
+		if (!(txn.session.perms & perms.QUERY)) {
 			return err_perms;
 		}
 		let tags = db.getTags();
@@ -143,7 +119,7 @@ export function createServer(_db, _options) {
 		}
 	}
 
-	async function doLogin(req, res, msg) {
+	async function doLogin(txn, msg) {
 		if ((typeof msg.name !== 'string') ||
 			(typeof msg.pass !== 'string')) {
 			return { error: "bad parameters" };
@@ -153,9 +129,9 @@ export function createServer(_db, _options) {
 		if (!user || user.password !== pass) {
 			return { error: "login failure" };
 		}
-		const sid = await makeSession({ username: user.name, perms: user.perms });
-		res.setHeader("Set-Cookie",
-			`session=${sid}; Path=/; Secure; HttpOnly; SameSite=Lax`);
+
+		const sid = await ws.makeSession(txn,
+			{ username: user.name, perms: user.perms });
 		console.log(`SESSION ${sid}: user='${user.name}' perms=${user.perms}`);
 		return {}
 	}
@@ -169,16 +145,16 @@ export function createServer(_db, _options) {
 		"getTags": doApiGetTags,
 		"login": doLogin,
 	}
-	async function doAPI(req, res, msg, relpath) {
+	async function doAPI(txn, msg, relpath) {
 		const fn = endpoints[relpath];
 		if (fn) {
-			return fn(req, res, msg);
+			return fn(txn, msg);
 		}
 		return { error: "invalid endpoint" };
 	}
 
-	async function doCheckUpload(req, res, relpath) {
-		if (req.session.perms & perms.UPLOAD) {
+	async function doCheckUpload(txn, relpath) {
+		if (txn.session.perms & perms.UPLOAD) {
 			return true;
 		}
 	}
@@ -238,7 +214,7 @@ export function createServer(_db, _options) {
 			return { post_id: id };
 		}
 	}
-	async function doUpload(req, res, info, relpath) {
+	async function doUpload(txn, info, relpath) {
 		let filename;
 		try {
 			filename = decodeURIComponent(relpath);
@@ -271,13 +247,13 @@ export function createServer(_db, _options) {
 	}
 
 	function start() {
-		webserver.start();
+		ws.start();
 	}
 
-	webserver.addEndpoint("/api/", doAPI);
-	webserver.addUploadEndpoint("/upload/", doCheckUpload, doUpload);
-	webserver.addStatic("/media/", options.mediaDir);
-	webserver.addStatic("/", options.staticDir);
+	ws.addEndpoint("/api/", doAPI);
+	ws.addUploadEndpoint("/upload/", doCheckUpload, doUpload);
+	ws.addStaticDir("/media/", options.mediaDir);
+	ws.addStaticDir("/", options.staticDir);
 
 	return { start };
 }

@@ -23,6 +23,8 @@ const default_mimetypes = {
 	svg: "image/svg+xml",
 	mjs: "application/javascript",
 	js: "application/javascript",
+	mp4: "video/mp4",
+	webm: "video/webm",
 };
 
 
@@ -97,6 +99,8 @@ export function createWebServer(options) {
 		res.writeHead(eno, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ error: why }));
 	}
+	const reRange = /^\s*([0-9]*)-([0-9]*)\s*$/;
+
 	async function handleStatic(req, res, ctx, relpath) {
 		if (req.method !== 'GET') {
 			res.setHeader("Allow", "GET");
@@ -119,7 +123,6 @@ export function createWebServer(options) {
 
 		const ext = path.extname(fspath).substring(1).toLowerCase();
 		const mimetype = mimeTypes[ext] || "application/octet-stream";
-		res.setHeader('Content-Type', mimetype);
 
 		let fh;
 		let sz = 0;
@@ -134,6 +137,7 @@ export function createWebServer(options) {
 				return;
 			}
 			if (!st.isFile()) {
+				fh.close();
 				return handleError(res, 404, "not found");
 			}
 			sz = st.size;
@@ -142,15 +146,53 @@ export function createWebServer(options) {
 			return handleError(res, 404, "not found");
 		}
 
+		let range = req.headers['range'];
+		let start = 0;
+		let end = sz - 1;
+		let code = 200;
+		if (range && range.startsWith("bytes=")) {
+			// ranges are inclusive
+			// combine multiple ranges into a single enclosing range
+			try {
+				start = sz;
+				end = 0;
+				range = range.substring(6);
+				for (let r of range.split(',')) {
+					r = reRange.exec(r);
+					if (r === null) throw "parse error";
+					let rstart = parseInt(r[1]);
+					let rend = parseInt(r[2]);
+					if (isNaN(rend)) rend = sz - 1;
+					if (isNaN(rstart)) {
+						if (rend > sz) throw "overflow";
+						rstart = sz - rend;
+						rend = sz - 1;
+					}
+					if (rstart < start) start = rstart;
+					if (rend > end) end = rend;
+				}
+				if (end < start) throw "nothing";
+				if (end >= sz) throw "overflow";
+			} catch (err) {
+				fh.close();
+				res.setHeader('Content-Range', `bytes */${sz}`);
+				return handleError(res, 416, "range not satisfiable");
+			}
+			code = 206;
+			res.setHeader('Content-Range', `bytes ${start}-${end}/${sz}`);
+			sz = end - start + 1;
+		}
+
 		try {
-			const rs = fh.createReadStream();
-			// TODO: handle short read?
-			res.writeHead(200, {
+			const rs = fh.createReadStream({ start, end });
+			res.writeHead(code, {
 				'Content-Type': mimetype,
 				'Content-Length': sz.toString() });
 			await pipeline(rs, res);
 		} catch (err) {
-			console.log(`static: error: send: ${err}`);
+			if (err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
+				console.log(`static: error: send: ${err}`);
+			}
 			req.destroy();
 		}
 	}
